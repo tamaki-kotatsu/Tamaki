@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const link = "mongodb+srv://valen_adrian:32953738@cluster0.lq44gss.mongodb.net/?retryWrites=true&w=majority&appName=Proyecto1";
+const link = "mongodb+srv://tamakiopps_db_user:QpMlxSGry1ZcmgDF@tamaki.swozjnj.mongodb.net/?retryWrites=true&w=majority&appName=Tamaki";
 
 const conectarDB = async () => {
     try {
