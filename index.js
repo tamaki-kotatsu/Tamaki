@@ -117,7 +117,7 @@ async function iniciarBot() {
                 console.log('\n==================================================');
                 console.log(`🔑 TU CÓDIGO DE VINCULACIÓN ES: \x1b[32m${code}\x1b[0m`);
                 console.log('==================================================');
-                console.log('🔔 Revisa tu celular: La notificación push de WhatsApp ya debió haber llegado para introducir este código.\n');
+                console.log('🔔 Ingresa el codigo: La notificación push de WhatsApp ya no llega para introducir este código.\n');
             } catch (error) {
                 console.error('❌ Error al generar el código de vinculación:', error);
                 codigoSolicitado = false;
