@@ -10,10 +10,10 @@ const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
-const conectarDB = require('./sistema/Principal/datos');
+const conectarDB = require('./sistema/Principales/datos');
 const readline = require('readline');
 
-const { procesarMensaje, verificarUnionGrupo } = require('./sistema/Principal/principal');
+const { procesarMensaje, verificarUnionGrupo } = require('./sistema/Principales/principal');
 
 global.historialMensajes = global.historialMensajes || {};
 global.plugins = global.plugins || {};
