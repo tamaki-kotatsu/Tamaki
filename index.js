@@ -94,7 +94,7 @@ async function iniciarBot() {
                 }
             }
         };
-        leerDirectorio('./plugins');
+        leerDirectorio('./comandos');
         console.log('🩵  ' + contador + ' Comandos cargados correctamente.');
     };
 
