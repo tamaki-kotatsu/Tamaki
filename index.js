@@ -10,10 +10,10 @@ const { Boom } = require('@hapi/boom');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
-const conectarDB = require('./sistema/base_datos');
+const conectarDB = require('./sistema/Principal/datos');
 const readline = require('readline');
 
-const { procesarMensaje, verificarUnionGrupo } = require('./sistema/principal');
+const { procesarMensaje, verificarUnionGrupo } = require('./sistema/Principal/principal');
 
 global.historialMensajes = global.historialMensajes || {};
 global.plugins = global.plugins || {};
@@ -68,7 +68,7 @@ async function iniciarBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    if (!fs.existsSync('./plugins')) fs.mkdirSync('./plugins');
+    if (!fs.existsSync('./comandos')) fs.mkdirSync('./comandos');
 
     const cargarPlugins = () => {
         let contador = 0;
@@ -95,7 +95,7 @@ async function iniciarBot() {
             }
         };
         leerDirectorio('./comandos');
-        console.log('🩵  ' + contador + ' Comandos cargados correctamente.');
+        console.log('⛔️  ' + contador + ' Comandos cargados correctamente.');
     };
 
     cargarPlugins();
@@ -108,7 +108,7 @@ async function iniciarBot() {
         if (usarCodigoVinculacion && !state.creds.registered && !codigoSolicitado && (connection === 'connecting' || qr)) {
             codigoSolicitado = true;
             try {
-                console.log('⏳ Solicitando código y enviando notificación al teléfono...');
+                console.log('⏳ Solicitando código...');
                 await new Promise(resolve => setTimeout(resolve, 3000));
                 
                 let code = await sock.requestPairingCode(numeroTelefono);
@@ -138,7 +138,7 @@ async function iniciarBot() {
                 setTimeout(() => iniciarBot(), 3000);
             }
         } else if (connection === 'open') {
-            console.log('🩵  Tamaki Kotatsu conectada con éxito.');
+            console.log('🔥  Tamaki Kotatsu conectada con éxito.');
         }
     });
 
