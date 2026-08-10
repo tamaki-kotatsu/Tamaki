@@ -5,7 +5,7 @@ const link = "mongodb+srv://tamakiopps_db_user:QpMlxSGry1ZcmgDF@tamaki.swozjnj.m
 const conectarDB = async () => {
     try {
         await mongoose.connect(link);
-        console.log('🩵  Base de datos conectada con éxito');
+        console.log('♻️  Base de datos conectada con éxito');
     } catch (e) {
         console.log('❌ [DATABASE] Error de conexión: ' + e);
     }
