@@ -1,5 +1,5 @@
 const { AdvModel, BlacklistModel, NukeModel, AntiStickerModel } = require('../Esquemas/esquemas');
-const Group = require('../Modelos/sgrupo');
+const Group = require('../Modelos/Stickers/sgrupo');
 
 async function verificarModeracion(sock, m, desde, esGrupo, remitente, textoCuerpo) {
     const advDoc = await AdvModel.findOne({ key: 'global_adv' });
