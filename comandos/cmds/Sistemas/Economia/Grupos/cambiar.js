@@ -1,4 +1,4 @@
-const Usuario = require('.Datos//usuarios');
+const Usuario = require('./Datos//usuarios');
 
 module.exports = {
   name: 'cambiar',
