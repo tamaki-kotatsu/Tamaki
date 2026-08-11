@@ -1,4 +1,4 @@
-const Group = require('../../Modelos/sgrupo');
+const Group = require('../../../sistema/Modelos/Stickers/sgrupo');
 const ms = require('ms');
 
 module.exports = {
