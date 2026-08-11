@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Group = require('../Modelos/sgrupo');
+const Group = require('../Modelos/Stickers/sgrupo');
 
 const groupConfigSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
