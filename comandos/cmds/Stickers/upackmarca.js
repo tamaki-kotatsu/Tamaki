@@ -1,4 +1,4 @@
-const User = require('../../Modelos/susers');
+const User = require('../../../sistema/Modelos/Stickers/susers');
 const ms = require('ms');
 
 module.exports = {
