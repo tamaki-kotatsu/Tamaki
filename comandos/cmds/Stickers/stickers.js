@@ -5,8 +5,8 @@ const { tmpdir } = require('os');
 const Crypto = require('crypto');
 const ff = require('fluent-ffmpeg');
 const webp = require('node-webpmux');
-const Group = require('../../Modelos/sgrupo');
-const User = require('../../Modelos/susers');
+const Group = require('../../../sistema/Modelos/Stickers/sgrupo');
+const User = require('../../../Modelos/susers');
 
 async function toWebp(media, type) {
   const tmpIn = path.join(tmpdir(), `${Crypto.randomBytes(6).readUIntLE(0, 6).toString(36)}.${type === 'image' ? 'jpg' : 'mp4'}`);
