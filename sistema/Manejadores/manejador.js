@@ -3,12 +3,12 @@ const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const Group = require('../Modelos/sgrupo');
 const { MessageModel, AfkModel } = require('../Esquemas/esquemas');
-const { verificarModeracion } = require('../Moderacion/moderacion');
+const { verificarModeracion } = require('../Moderadores/moderador');
 
 // Cargar funciones del helper de sticker
 let toWebp, writeExifWebp, resolveStickerMetadata;
 try {
-    const stickerPlugin = require('../../plugins/stickers');
+    const stickerPlugin = require('../../comandos/cmds/Stickers/stickers');
     toWebp = stickerPlugin.toWebp;
     writeExifWebp = stickerPlugin.writeExifWebp;
     resolveStickerMetadata = stickerPlugin.resolveStickerMetadata;
