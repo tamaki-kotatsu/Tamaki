@@ -1,6 +1,6 @@
-const { cargarCaches } = require('../principal/Esquemas/esquemas');
-const { procesarMensaje } = require('../principal/Manejadores/manejador');
-const { verificarUnionGrupo } = require('../principal/Eventos/eventos');
+const { cargarCaches } = require('../principales/Esquemas/esquemas');
+const { procesarMensaje } = require('../principales/Manejadores/manejador');
+const { verificarUnionGrupo } = require('../principales/Eventos/eventos');
 
 cargarCaches();
 
