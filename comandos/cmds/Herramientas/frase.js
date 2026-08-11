@@ -1,6 +1,6 @@
 const sharp = require('sharp');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-const QcConfig = require('../../sistema/Modelos/qc/QcConfiguracion');
+const QcConfig = require('../../sistema/Modelos/Qc/QcConfiguracion');
 
 module.exports = {
   name: 'quote',
