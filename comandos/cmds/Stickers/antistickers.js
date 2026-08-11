@@ -1,4 +1,4 @@
-const Group = require('../../Modelos/sgrupo');
+const Group = require('../../../sistema/Modelos/sgrupo');
 
 module.exports = {
   name: 'antisticker',
