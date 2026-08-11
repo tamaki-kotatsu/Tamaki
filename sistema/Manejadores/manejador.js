@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const Group = require('../../Modelos/sgrupo');
+const Group = require('../Modelos/sgrupo');
 const { MessageModel, AfkModel } = require('../Esquemas/esquemas');
 const { verificarModeracion } = require('../Moderacion/moderacion');
 
