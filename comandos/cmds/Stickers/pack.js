@@ -1,6 +1,6 @@
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const Group = require('../../Modelos/sgrupo');
-const User = require('../../Modelos/susers');
+const Group = require('../../../sistema/Modelos/Stickers/sgrupo');
+const User = require('../../../sistema/Modelos/Stickers/susers');
 const { toWebp, writeExifWebp, resolveStickerMetadata } = require('./stickers');
 
 module.exports = {
