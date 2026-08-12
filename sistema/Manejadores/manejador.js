@@ -5,7 +5,6 @@ const Group = require('../Modelos/Stickers/sgrupo');
 const { MessageModel, AfkModel } = require('../Esquemas/esquemas');
 const { verificarModeracion } = require('../Moderadores/moderador');
 
-// Cargar funciones del helper de sticker
 let toWebp, writeExifWebp, resolveStickerMetadata;
 try {
     const stickerPlugin = require('../../comandos/cmds/Stickers/stickers');
@@ -19,7 +18,11 @@ try {
 global.historialMensajes = global.historialMensajes || {};
 global.plugins = global.plugins || {};
 global.prefixes = global.prefixes || ['/'];
-global.botNames = global.botNames || ['hatsune miku', 'miku hatsune', 'hatsune', 'miku'];
+global.botNames = global.botNames || [
+    'tamaki kotatsu', 'tamaki', 'kotatsu', 'tama', 'kota',
+    'Tamaki Kotatsu', 'Tamaki', 'Kotatsu', 'Tama', 'Kota',
+    'TAMAKI KOTATSU', 'TAMAKI', 'KOTATSU', 'TAMA', 'KOTA'
+];
 
 const cargarDirectorioRecursivo = (dir) => {
     if (!fs.existsSync(dir)) return;
@@ -47,8 +50,6 @@ const cargarTodosLosComandos = () => {
     global.plugins = {};
     cargarDirectorioRecursivo(path.join(process.cwd(), 'plugins'));
     cargarDirectorioRecursivo(path.join(process.cwd(), 'Comandos'));
-    const totalCargados = Object.keys(global.plugins).length;
-    console.log(`🩵  ${totalCargados} Comandos y plugins cargados correctamente.`);
 };
 
 cargarTodosLosComandos();
