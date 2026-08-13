@@ -13,13 +13,13 @@ module.exports = {
       const from = m.key.remoteJid;
       const name = m.pushName || 'Usuario';
 
-      const link = 'https://api.alyacore.xyz'; 
-      const banner = 'https://files.catbox.moe/n42hnr.jpg'; // Imagen ligera (< 200 KB)
-      const botname = '╰☆╮Hatsune ╭☆╮Miku╰☆╮• AI Assistant';
+      const link = 'https://tamaki-kotatsu.github.io/.xyz/'; 
+      const banner = 'https://files.catbox.moe/oa48ft.jpg'; // Imagen ligera (< 200 KB)
+      const botname = '╰☆╮Hatsune ╭☆╮Miku╰☆╮• WA BOT';
       const descripcion = '✧ ─━⊜ POWERED BY |─━ Hanner';
 
-      const textoMenu = `> Hola *${name}*, soy *Miku*₍ᐢ..ᐢ₎
-> ¡buenas noches! Aquí tienes el
+      const textoMenu = `> Hola *${name}*, yo soy *Tamaki* ₍ᐢ..ᐢ₎
+> ¡bienvenido/a! Aquí tienes el
 > menú de mis comandos.
 
 : ̗̀❖ *ᴜʀʟ ::* ${link}
@@ -27,7 +27,9 @@ module.exports = {
   *  .    .    *    .  
 . ⌒ ⌒  ✿ 𖤘  ✿  ⌒ ⌒  .
 
-⌒ 𓆩♡𓆪`;
+⌒ 𓆩♡𓆪`; ping
+        (p, pong, tiempo)
+      > Mide el tiempo de respuesta de la bot
 
       // 1. Reutilizar la imagen subida si no ha cambiado el enlace
       if (!cachedMedia || lastBannerUrl !== banner) {
