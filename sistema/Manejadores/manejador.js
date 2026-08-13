@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
 const Group = require('../Modelos/Stickers/sgrupo');
 const { MessageModel, AfkModel } = require('../Esquemas/esquemas');
 const { verificarModeracion } = require('../Moderadores/moderador');
@@ -24,6 +24,8 @@ global.botNames = global.botNames || [
     'TAMAKI KOTATSU', 'TAMAKI', 'KOTATSU', 'TAMA', 'KOTA'
 ];
 global.menuPaginadoActivo = global.menuPaginadoActivo || {};
+let cachedMediaHandler = {};
+let lastBannerUrlHandler = {};
 
 const cargarDirectorioRecursivo = (dir) => {
     if (!fs.existsSync(dir)) return;
@@ -171,8 +173,37 @@ async function procesarMensaje(sock, chatUpdate) {
             const opcion = parseInt(cuerpoMensaje.trim());
 
             if (!isNaN(opcion) && opcion >= 1 && opcion <= sesionMenu.pages.length) {
-                const textoNuevaPagina = sesionMenu.pages[opcion - 1];
-                await sock.sendMessage(desde, { text: textoNuevaPagina }, { quoted: m });
+                const paginaSeleccionada = sesionMenu.pages[opcion - 1];
+                const bannerNuevo = paginaSeleccionada.banner;
+                const textoNuevo = paginaSeleccionada.text;
+
+                if (!cachedMediaHandler[bannerNuevo] || lastBannerUrlHandler[bannerNuevo] !== bannerNuevo) {
+                    cachedMediaHandler[bannerNuevo] = await prepareWAMessageMedia(
+                        { image: { url: bannerNuevo } },
+                        { upload: sock.waUploadToServer, mediaTypeOverride: 'thumbnail-link' }
+                    );
+                    lastBannerUrlHandler[bannerNuevo] = bannerNuevo;
+                }
+
+                const mediaActualHandler = cachedMediaHandler[bannerNuevo];
+
+                const nuevoMsg = await sock.sendMessage(desde, {
+                    text: textoNuevo.trim(),
+                    linkPreview: {
+                        'canonical-url': sesionMenu.link,
+                        'matched-text': sesionMenu.link,
+                        title: sesionMenu.botname,
+                        description: sesionMenu.descripcion,
+                        jpegThumbnail: mediaActualHandler?.imageMessage?.jpegThumbnail ? Buffer.from(mediaActualHandler.imageMessage.jpegThumbnail) : undefined,
+                        highQualityThumbnail: mediaActualHandler?.imageMessage || undefined
+                    },
+                    contextInfo: { mentionedJid: null, isForwarded: false }
+                }, { quoted: m });
+
+                if (nuevoMsg && nuevoMsg.key && nuevoMsg.key.id) {
+                    global.menuPaginadoActivo[nuevoMsg.key.id] = sesionMenu;
+                }
+
                 return;
             }
         }
@@ -252,7 +283,6 @@ async function procesarMensaje(sock, chatUpdate) {
 
                         await sock.sendMessage(desde, {
                             text: `💤 El usuario ${tagAusente} está *AFK* en este grupo.\n\n📝 *Motivo:* ${afkTarget.motivo}\n⏱️ *Tiempo:* ${tiempoFormateated}`,
-                            mentions: [jid]
                         }, { quoted: m });
                     }
                 }
