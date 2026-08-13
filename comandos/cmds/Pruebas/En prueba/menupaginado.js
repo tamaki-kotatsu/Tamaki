@@ -21,14 +21,12 @@ module.exports = {
       }, { quoted: m });
 
       if (sentMsg && sentMsg.key && sentMsg.key.id) {
-        const rootId = sentMsg.key.id;
-        const sesionData = {
-          rootId: rootId,
+        const messageId = sentMsg.key.id;
+        global.menuPaginadoActivo[messageId] = {
+          rootId: messageId,
           remitente: m.key.participant || from,
           pages: pagesData
         };
-
-        global.menuPaginadoActivo[rootId] = sesionData;
       }
 
     } catch (e) {
