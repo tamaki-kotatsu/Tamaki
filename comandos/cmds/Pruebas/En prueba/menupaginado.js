@@ -46,8 +46,8 @@ module.exports = {
       }, { quoted: m });
 
       if (sentMsg && sentMsg.key && sentMsg.key.id) {
-        global.menuPaginadoActivo[sentMsg.key.id] = {
-          rootId: sentMsg.key.id,
+        const sesionId = sentMsg.key.id;
+        global.menuPaginadoActivo[sesionId] = {
           remitente: m.key.participant || from,
           pages: pagesData,
           link: link,
