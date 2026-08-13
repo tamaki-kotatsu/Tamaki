@@ -172,12 +172,10 @@ async function procesarMensaje(sock, chatUpdate) {
 
             if (!isNaN(opcion) && opcion >= 1 && opcion <= sesionMenu.pages.length) {
                 const paginaSeleccionada = sesionMenu.pages[opcion - 1];
-                const bannerNuevo = paginaSeleccionada.banner;
                 const textoNuevo = paginaSeleccionada.text;
 
                 const nuevoMsg = await sock.sendMessage(desde, {
-                    image: { url: bannerNuevo },
-                    caption: textoNuevo.trim()
+                    text: textoNuevo.trim()
                 }, { quoted: m });
 
                 if (nuevoMsg && nuevoMsg.key && nuevoMsg.key.id) {
