@@ -201,15 +201,7 @@ async function procesarMensaje(sock, chatUpdate) {
                 }, { quoted: m });
 
                 if (nuevoMsg && nuevoMsg.key && nuevoMsg.key.id) {
-                    global.menuPaginadoActivo[nuevoMsg.key.id] = {
-                        rootId: sesionMenu.rootId,
-                        remitente: sesionMenu.remitente,
-                        pages: sesionMenu.pages,
-                        link: sesionMenu.link,
-                        botname: sesionMenu.botname,
-                        descripcion: sesionMenu.descripcion
-                    };
-                    global.menuPaginadoActivo[sesionMenu.rootId] = global.menuPaginadoActivo[nuevoMsg.key.id];
+                    global.menuPaginadoActivo[nuevoMsg.key.id] = sesionMenu;
                 }
 
                 return;
