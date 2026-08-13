@@ -47,6 +47,7 @@ module.exports = {
 
       if (sentMsg && sentMsg.key && sentMsg.key.id) {
         global.menuPaginadoActivo[sentMsg.key.id] = {
+          rootId: sentMsg.key.id,
           remitente: m.key.participant || from,
           pages: pagesData,
           link: link,
