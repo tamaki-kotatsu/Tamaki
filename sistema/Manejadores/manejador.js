@@ -181,7 +181,8 @@ async function procesarMensaje(sock, chatUpdate) {
                 }, { quoted: m });
 
                 if (nuevoMsg && nuevoMsg.key && nuevoMsg.key.id) {
-                    global.menuPaginadoActivo[nuevoMsg.key.id] = sesionMenu;
+                    const nuevoId = nuevoMsg.key.id;
+                    global.menuPaginadoActivo[nuevoId] = sesionMenu;
                     global.menuPaginadoActivo[sesionMenu.rootId] = sesionMenu;
                 }
 
