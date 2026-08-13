@@ -16,14 +16,19 @@ module.exports = {
       const paginaInicial = pagesData[0];
 
       const sentMsg = await sock.sendMessage(from, {
-        text: paginaInicial.text.trim()
+        image: { url: paginaInicial.banner },
+        caption: paginaInicial.text.trim()
       }, { quoted: m });
 
       if (sentMsg && sentMsg.key && sentMsg.key.id) {
-        global.menuPaginadoActivo[sentMsg.key.id] = {
+        const rootId = sentMsg.key.id;
+        const sesionData = {
+          rootId: rootId,
           remitente: m.key.participant || from,
           pages: pagesData
         };
+
+        global.menuPaginadoActivo[rootId] = sesionData;
       }
 
     } catch (e) {
