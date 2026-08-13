@@ -23,6 +23,7 @@ global.botNames = global.botNames || [
     'Tamaki Kotatsu', 'Tamaki', 'Kotatsu', 'Tama', 'Kota',
     'TAMAKI KOTATSU', 'TAMAKI', 'KOTATSU', 'TAMA', 'KOTA'
 ];
+global.menuPaginadoActivo = global.menuPaginadoActivo || {};
 
 const cargarDirectorioRecursivo = (dir) => {
     if (!fs.existsSync(dir)) return;
@@ -163,6 +164,18 @@ async function procesarMensaje(sock, chatUpdate) {
                              m.message?.imageMessage?.caption || 
                              m.message?.videoMessage?.caption || 
                              '';
+
+        const quotedId = m.message?.extendedTextMessage?.contextInfo?.stanzaId;
+        if (quotedId && global.menuPaginadoActivo && global.menuPaginadoActivo[quotedId]) {
+            const sesionMenu = global.menuPaginadoActivo[quotedId];
+            const opcion = parseInt(cuerpoMensaje.trim());
+
+            if (!isNaN(opcion) && opcion >= 1 && opcion <= sesionMenu.pages.length) {
+                const textoNuevaPagina = sesionMenu.pages[opcion - 1];
+                await sock.sendMessage(desde, { text: textoNuevaPagina }, { quoted: m });
+                return;
+            }
+        }
 
         const { esComando, comandoNombre, textoArgs } = extraerComandoYTexto(cuerpoMensaje, sock, desde);
 
