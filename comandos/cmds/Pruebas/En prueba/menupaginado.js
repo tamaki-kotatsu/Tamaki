@@ -16,8 +16,7 @@ module.exports = {
       const paginaInicial = pagesData[0];
 
       const sentMsg = await sock.sendMessage(from, {
-        image: { url: paginaInicial.banner },
-        caption: paginaInicial.text.trim()
+        text: paginaInicial.text.trim()
       }, { quoted: m });
 
       if (sentMsg && sentMsg.key && sentMsg.key.id) {
