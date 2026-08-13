@@ -1,5 +1,5 @@
 const { prepareWAMessageMedia } = require('@whiskeysockets/baileys');
-const { getMenuPages } = require('./menuPages');
+const { getMenuPages } = require('./menupaginas');
 
 // Almacén temporal en memoria para rastrear qué mensaje de menú pertenece a qué usuario/chat
 global.menuPaginadoActivo = global.menuPaginadoActivo || {};
