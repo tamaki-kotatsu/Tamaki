@@ -24,12 +24,12 @@ module.exports = {
 
 : ̗̀❖ *ᴜʀʟ ::* ${link}
 
-  *  .    .    *    .  
+  * .    .    * .  
 . ⌒ ⌒  ✿ 𖤘  ✿  ⌒ ⌒  .
 
 ⌒ 𓆩♡𓆪`; ping
         (p, pong, tiempo)
-      > Mide el tiempo de respuesta de la bot
+      > Mide el tiempo de respuesta de la bot`; // <--- Aquí se cerraba mal y faltaba cerrarlo al final
 
       // 1. Reutilizar la imagen subida si no ha cambiado el enlace
       if (!cachedMedia || lastBannerUrl !== banner) {
