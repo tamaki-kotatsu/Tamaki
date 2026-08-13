@@ -1,11 +1,10 @@
 const { prepareWAMessageMedia } = require('@whiskeysockets/baileys');
 const { getMenuPages } = require('./menupaginas');
 
-// Almacén temporal en memoria para rastrear qué mensaje de menú pertenece a qué usuario/chat
 global.menuPaginadoActivo = global.menuPaginadoActivo || {};
 
-let cachedMedia = null;
-let lastBannerUrl = '';
+let cachedMedia = {};
+let lastBannerUrl = {};
 
 module.exports = {
   name: 'menupaginado',
@@ -16,45 +15,48 @@ module.exports = {
       const from = m.key.remoteJid;
       const name = m.pushName || 'Usuario';
       const link = 'https://tamaki-kotatsu.github.io/.xyz/'; 
-      const banner = 'https://files.catbox.moe/oa48ft.jpg'; 
       const botname = '╰☆╮Hatsune ╭☆╮Miku╰☆╮• WA BOT';
       const descripcion = '✧ ─━⊜ POWERED BY |─━ Hanner';
 
-      const pages = getMenuPages(name, link);
-      const paginaInicial = pages[0];
+      const pagesData = getMenuPages(name, link);
+      const paginaInicialText = pagesData[0].text;
+      const bannerInicial = pagesData[0].banner;
 
-      if (!cachedMedia || lastBannerUrl !== banner) {
-        cachedMedia = await prepareWAMessageMedia(
-          { image: { url: banner } },
+      if (!cachedMedia[bannerInicial] || lastBannerUrl[bannerInicial] !== bannerInicial) {
+        cachedMedia[bannerInicial] = await prepareWAMessageMedia(
+          { image: { url: bannerInicial } },
           { upload: sock.waUploadToServer, mediaTypeOverride: 'thumbnail-link' }
         );
-        lastBannerUrl = banner;
+        lastBannerUrl[bannerInicial] = bannerInicial;
       }
 
+      const mediaActual = cachedMedia[bannerInicial];
+
       const sentMsg = await sock.sendMessage(from, {
-        text: paginaInicial.trim(),
+        text: paginaInicialText.trim(),
         linkPreview: {
           'canonical-url': link,
           'matched-text': link,
           title: botname,
           description: descripcion,
-          jpegThumbnail: cachedMedia?.imageMessage?.jpegThumbnail ? Buffer.from(cachedMedia.imageMessage.jpegThumbnail) : undefined,
-          highQualityThumbnail: cachedMedia?.imageMessage || undefined
+          jpegThumbnail: mediaActual?.imageMessage?.jpegThumbnail ? Buffer.from(mediaActual.imageMessage.jpegThumbnail) : undefined,
+          highQualityThumbnail: mediaActual?.imageMessage || undefined
         },
         contextInfo: { mentionedJid: null, isForwarded: false }
       }, { quoted: m });
 
-      // Guardamos el ID del mensaje enviado para validarlo cuando respondan
       if (sentMsg && sentMsg.key && sentMsg.key.id) {
         global.menuPaginadoActivo[sentMsg.key.id] = {
           remitente: m.key.participant || from,
-          pages: pages
+          pages: pagesData,
+          link: link,
+          botname: botname,
+          descripcion: descripcion
         };
       }
 
     } catch (e) {
       console.error('Error al enviar el menú paginado:', e);
-      cachedMedia = null;
       await sock.sendMessage(m.key.remoteJid, { text: '❌ Ocurrió un error al cargar el menú paginado.' }, { quoted: m });
     }
   }
