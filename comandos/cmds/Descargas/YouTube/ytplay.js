@@ -35,7 +35,6 @@ module.exports = {
         return sock.sendMessage(from, { text: '❌ No se pudo obtener el audio de este enlace.' }, { quoted: m });
       }
 
-      // Buscamos un formato de audio que tenga URL directa disponible
       const audioFormat = streamData.audioFormats.find(f => f.url) || streamData.audioFormats.find(f => f.cipher?.url);
       const targetUrl = audioFormat?.url || audioFormat?.cipher?.url;
 
@@ -44,25 +43,21 @@ module.exports = {
       }
 
       const randomId = Date.now();
-      const inputTemp = `./tmp_input_${randomId}.mp4`;
       const outputTemp = `./tmp_output_${randomId}.mp3`;
 
       try {
-        // Descargamos el stream binario de la URL
-        const response = await fetch(targetUrl);
-        if (!response.ok) throw new Error(`Falló la descarga del stream (${response.status})`);
+        // Hacemos que FFmpeg descargue directamente el enlace con un User-Agent de navegador simulado
+        const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36';
         
-        const bufferStream = Buffer.from(await response.arrayBuffer());
-        fs.writeFileSync(inputTemp, bufferStream);
-
-        // Convertimos a MP3 estándar con FFmpeg para compatibilidad total con WhatsApp
-        await execPromise(`ffmpeg -i "${inputTemp}" -vn -ab 128k -ar 44100 -f mp3 "${outputTemp}"`);
+        const ffmpegCommand = `ffmpeg -user_agent "${userAgent}" -i "${targetUrl}" -vn -ab 128k -ar 44100 -f mp3 "${outputTemp}"`;
+        
+        await execPromise(ffmpegCommand);
 
         if (!fs.existsSync(outputTemp)) {
           throw new Error('Fallo al generar el archivo con FFmpeg');
         }
 
-        // Enviamos el audio procesado
+        // Enviamos el audio procesado a WhatsApp
         await sock.sendMessage(from, {
           audio: fs.readFileSync(outputTemp),
           mimetype: 'audio/mp4',
@@ -72,7 +67,6 @@ module.exports = {
 
       } finally {
         // Limpieza de archivos temporales
-        if (fs.existsSync(inputTemp)) fs.unlinkSync(inputTemp);
         if (fs.existsSync(outputTemp)) fs.unlinkSync(outputTemp);
       }
 
