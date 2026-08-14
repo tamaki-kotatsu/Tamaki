@@ -2,7 +2,7 @@ const ytMusic = require('../../../../sistema/Libreria/music.js');
 
 module.exports = {
   name: 'ytmusic2',
-  alias: ['ytm2', 'music', 'musica'],
+  alias: ['ñya', 'music', 'musica'],
   description: 'Explora YouTube Music (Búsquedas, Álbumes, Artistas, Letras y Más).',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
