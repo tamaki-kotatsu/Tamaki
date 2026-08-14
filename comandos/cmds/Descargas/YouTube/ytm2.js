@@ -1,4 +1,4 @@
-const ytMusic = require('../lib/music.js');
+const ytMusic = require('../../../../sistema/Libreria/music.js');
 
 module.exports = {
   name: 'ytsearch',
