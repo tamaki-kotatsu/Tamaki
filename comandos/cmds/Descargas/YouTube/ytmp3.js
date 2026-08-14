@@ -1,4 +1,4 @@
-const ytMusic = require('../lib/music.js'); // Ajusta la ruta según dónde guardes el archivo music.js
+const ytMusic = require('../../../../sistema/Libreria/music.js'); // Ajusta la ruta según dónde guardes el archivo music.js
 
 module.exports = {
   name: 'ytmusic',
