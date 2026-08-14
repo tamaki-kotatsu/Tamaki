@@ -1,16 +1,19 @@
 const ytMusic = require('../../../../sistema/Libreria/music.js');
+const fs = require('fs');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 module.exports = {
   name: 'ytmusic',
   alias: ['yts', 'musica', 'play', 'audio'],
-  description: 'Busca y envía música de YouTube Music.',
+  description: 'Busca, procesa con FFmpeg y envía música de YouTube Music.',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
     
-    // Si no escriben nada, muestra la ayuda
     if (!texto || !texto.trim()) {
       return sock.sendMessage(from, { 
-        text: '❌ *Uso incorrecto.*\n\nEjemplos:\n• `/play <nombre de la canción>`\n• `/ytm search <canción>`' 
+        text: '❌ *Uso incorrecto.*\n\nEjemplo:\n• `/play Linkin Park Numb`' 
       }, { quoted: m });
     }
 
@@ -19,29 +22,6 @@ module.exports = {
     const query = args.slice(1).join(' ');
 
     try {
-      // Si el comando es "search", busca la lista
-      if (command === 'search') {
-        if (!query) return sock.sendMessage(from, { text: '⚠️ Escribe algo para buscar.' }, { quoted: m });
-        
-        await sock.sendMessage(from, { text: '🔍 Buscando en YouTube Music...' }, { quoted: m });
-        const res = await ytMusic.search(query, 'songs');
-        
-        if (!res.results || res.results.length === 0) {
-          return sock.sendMessage(from, { text: '❌ No se encontraron resultados.' }, { quoted: m });
-        }
-
-        let mensaje = `🎵 *Resultados para:* "${query}"\n\n`;
-        res.results.slice(0, 5).forEach((item, index) => {
-          mensaje += `${index + 1}. *${item.title}*\n`;
-          mensaje += `   • Artista: ${item.artists?.map(a => a.name).join(', ') || 'Desconocido'}\n`;
-          mensaje += `   • Duración: ${item.duration || 'N/A'}\n\n`;
-        });
-        mensaje += `_Para descargar, escribe el nombre completo con /play_`;
-
-        return sock.sendMessage(from, { text: mensaje }, { quoted: m });
-      }
-
-      // Por defecto, si ponen cualquier otra cosa o usan el alias play, asumimos que es una búsqueda para descargar el audio
       const songQuery = ['play', 'audio', 'ytm', 'musica'].includes(command) ? query : texto;
 
       if (!songQuery) {
@@ -57,7 +37,7 @@ module.exports = {
         return sock.sendMessage(from, { text: '❌ No encontré ninguna canción con ese nombre.' }, { quoted: m });
       }
 
-      await sock.sendMessage(from, { text: `🎵 *Encontrado:* ${song.title}\n⏳ Preparando y enviando audio...` }, { quoted: m });
+      await sock.sendMessage(from, { text: '🎵 ' + song.title + '\n⏳ Descargando y convirtiendo audio con FFmpeg...' }, { quoted: m });
 
       const streamData = await ytMusic.download(song.videoId);
 
@@ -65,23 +45,50 @@ module.exports = {
         return sock.sendMessage(from, { text: '❌ No se pudo obtener el audio de este enlace.' }, { quoted: m });
       }
 
+      // Buscamos un formato que tenga URL directa
       const audioFormat = streamData.audioFormats.find(f => f.url) || streamData.audioFormats[0];
 
       if (!audioFormat || !audioFormat.url) {
-        return sock.sendMessage(from, { text: '❌ El formato de audio no está disponible.' }, { quoted: m });
+        return sock.sendMessage(from, { text: '❌ El formato de audio está protegido o no disponible.' }, { quoted: m });
       }
 
-      // Envía el audio directamente a WhatsApp
-      await sock.sendMessage(from, {
-        audio: { url: audioFormat.url },
-        mimetype: 'audio/mp4',
-        fileName: `${song.title}.mp3`,
-        ptt: false
-      }, { quoted: m });
+      // Archivos temporales únicos para evitar conflictos
+      const randomId = Date.now();
+      const inputTemp = `./tmp_input_${randomId}.mp4`;
+      const outputTemp = `./tmp_output_${randomId}.mp3`;
+
+      try {
+        // 1. Descargamos el stream crudo de la URL a un archivo temporal usando fetch
+        const response = await fetch(audioFormat.url);
+        if (!response.ok) throw new Error(`Falló la descarga del stream (${response.status})`);
+        const bufferStream = Buffer.from(await response.arrayBuffer());
+        fs.writeFileSync(inputTemp, bufferStream);
+
+        // 2. Procesamos y convertimos estrictamente con FFmpeg a MP3 estándar compatible con WhatsApp
+        await execPromise(`ffmpeg -i "${inputTemp}" -vn -ab 128k -ar 44100 -f mp3 "${outputTemp}"`);
+
+        // 3. Verificamos que se haya creado el archivo convertido
+        if (!fs.existsSync(outputTemp)) {
+          throw new Error('Fallo al generar el archivo con FFmpeg');
+        }
+
+        // 4. Enviamos el audio procesado correctamente
+        await sock.sendMessage(from, {
+          audio: fs.readFileSync(outputTemp),
+          mimetype: 'audio/mp4',
+          fileName: `${song.title}.mp3`,
+          ptt: false // Cambia a true si quieres que se envíe como nota de voz
+        }, { quoted: m });
+
+      } finally {
+        // Limpieza de archivos temporales de forma segura
+        if (fs.existsSync(inputTemp)) fs.unlinkSync(inputTemp);
+        if (fs.existsSync(outputTemp)) fs.unlinkSync(outputTemp);
+      }
 
     } catch (error) {
       console.error(error);
-      await sock.sendMessage(from, { text: `❌ Ocurrió un error: ${error.message}` }, { quoted: m });
+      await sock.sendMessage(from, { text: `❌ Ocurrió un error al procesar el audio: ${error.message}` }, { quoted: m });
     }
   }
 };
