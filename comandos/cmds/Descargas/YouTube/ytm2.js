@@ -3,13 +3,14 @@ const ytMusic = require('../../../../sistema/Libreria/music.js');
 module.exports = {
   name: 'ytsearch',
   alias: ['yts', 'musicinfo', 'ytmsearch'],
-  description: 'Buscador y explorador completo de YouTube Music.',
+  description: 'Explorador avanzado de YouTube Music (Álbumes, Artistas, Letras, etc.)',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
     
+    // Si no escriben texto o ponen solo /yts, muestra el menú de ayuda interactivo
     if (!texto || !texto.trim()) {
       return sock.sendMessage(from, { 
-        text: `🎵 *Centro de Búsqueda YouTube Music* 🎵\n\nComandos disponibles:\n\n• \`/yts search <nombre>\`\n  _Busca canciones, artistas o álbumes_\n\n• \`/yts info <browseId>\`\n  _Muestra las canciones de un Álbum (MPREb...) o Artista (UC...)_\n\n• \`/yts lyrics <videoId>\`\n  _Extrae la letra oficial de una canción_\n\n• \`/yts related <videoId>\`\n  _Muestra pistas relacionadas_\n` 
+        text: `🎵 *Menú de YouTube Music* 🎵\n\nUsa los comandos de la siguiente manera:\n\n• \`/yts search <nombre>\`\n  _Busca canciones, álbumes, artistas y playlists_\n\n• \`/yts info <browseId>\`\n  _Muestra las canciones de un Álbum (MPREb...) o Artista (UC...)_\n\n• \`/yts lyrics <videoId>\`\n  _Extrae la letra oficial de una canción_\n\n• \`/yts related <videoId>\`\n  _Muestra canciones relacionadas/recomendadas_` 
       }, { quoted: m });
     }
 
@@ -18,14 +19,13 @@ module.exports = {
     const query = args.slice(1).join(' ');
 
     try {
+      // 1. Comando SEARCH
       if (subCommand === 'search') {
         if (!query) {
           return sock.sendMessage(from, { text: '⚠️ Escribe lo que deseas buscar.\n*Ejemplo:* `/yts search Daft Punk`' }, { quoted: m });
         }
 
         await sock.sendMessage(from, { text: '🔍 Buscando en YouTube Music...' }, { quoted: m });
-        
-        // Hacemos la búsqueda general sin filtros rotos para que devuelva todos los tipos de resultados limpios
         const res = await ytMusic.search(query);
 
         if (!res.results || res.results.length === 0) {
@@ -39,7 +39,6 @@ module.exports = {
           mensaje += `   • *Tipo:* ${item.resultType || 'Desconocido'}\n`;
           if (item.subtitle) mensaje += `   • *Detalle:* ${item.subtitle}\n`;
           
-          // Mostramos los IDs correctos dependiendo de si es contenido reproducibles o un catálogo/artista
           if (item.videoId) {
             mensaje += `   • *Video ID:* \`${item.videoId}\`\n`;
           }
@@ -49,11 +48,13 @@ module.exports = {
           mensaje += `\n`;
         });
 
-        mensaje += `_💡 Copia el Browse ID para ver álbumes/artistas con /yts info <ID>_`;
-
+        mensaje += `_💡 Usa /yts info <Browse ID> para ver el contenido completo de álbumes o artistas._`;
         return sock.sendMessage(from, { text: mensaje }, { quoted: m });
 
-      } else if (subCommand === 'info') {
+      } 
+      
+      // 2. Comando INFO (Álbumes, Artistas, Playlists)
+      else if (subCommand === 'info') {
         const browseId = args[1];
         if (!browseId) {
           return sock.sendMessage(from, { text: '⚠️ Debes proporcionar un ID válido.\n*Ejemplo:* `/yts info MPREb_iiwAV5NRcwy`' }, { quoted: m });
@@ -93,7 +94,10 @@ module.exports = {
 
         return sock.sendMessage(from, { text: '📄 Datos:\n\n' + JSON.stringify(data, null, 2).slice(0, 1500) }, { quoted: m });
 
-      } else if (subCommand === 'lyrics') {
+      } 
+      
+      // 3. Comando LYRICS (Letras)
+      else if (subCommand === 'lyrics') {
         const videoId = args[1];
         if (!videoId) {
           return sock.sendMessage(from, { text: '⚠️ Ingresa el videoId de la canción.\n*Ejemplo:* `/yts lyrics <videoId>`' }, { quoted: m });
@@ -109,7 +113,10 @@ module.exports = {
         let msg = `📜 *Letra de la canción*\n\n${lyricData.lyrics}`;
         return sock.sendMessage(from, { text: msg.length > 3900 ? msg.slice(0, 3900) + '...' : msg }, { quoted: m });
 
-      } else if (subCommand === 'related') {
+      } 
+      
+      // 4. Comando RELATED (Relacionados)
+      else if (subCommand === 'related') {
         const videoId = args[1];
         if (!videoId) {
           return sock.sendMessage(from, { text: '⚠️ Ingresa un videoId válido.\n*Ejemplo:* `/yts related <videoId>`' }, { quoted: m });
@@ -129,8 +136,13 @@ module.exports = {
 
         return sock.sendMessage(from, { text: msg }, { quoted: m });
 
-      } else {
-        return sock.sendMessage(from, { text: '❓ Comando no válido. Usa `/yts` para ver la ayuda.' }, { quoted: m });
+      } 
+      
+      // Si escriben cualquier otra cosa sin subcomando válido
+      else {
+        return sock.sendMessage(from, { 
+          text: `❓ Subcomando no reconocido. Usa:\n• \`/yts search <nombre>\`\n• \`/yts info <browseId>\`\n• \`/yts lyrics <videoId>\`\n• \`/yts related <videoId>\`` 
+        }, { quoted: m });
       }
 
     } catch (error) {
