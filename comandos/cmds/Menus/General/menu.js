@@ -14,7 +14,7 @@ module.exports = {
       const name = m.pushName || 'Usuario';
 
       const link = 'https://tamaki-kotatsu.github.io/.xyz/'; 
-      const banner = 'https://files.catbox.moe/oa48ft.jpg'; // Imagen ligera (< 200 KB)
+      const banner = 'https://files.catbox.moe/19e8yp.jpg'; // Imagen ligera (< 200 KB)
       const botname = '╰☆╮Hatsune ╭☆╮Miku╰☆╮• WA BOT';
       const descripcion = '✧ ─━⊜ POWERED BY |─━ Hanner';
 
