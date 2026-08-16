@@ -1,70 +1,64 @@
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const fs = require('fs');
-const { exec } = require('child_process');
+// Importamos las funciones exactas de tu archivo de stickers
+const { toWebp, writeExifWebp } = require('./stickers'); // Asegúrate de ajustar la ruta si tu archivo de sticker se llama diferente o está en otra carpeta
 
 module.exports = {
     name: 'wm',
     alias: ['watermark', 'rob'],
-    description: 'Crea o cambia la marca de agua de un sticker.',
+    description: 'Robar o reenviar un sticker/imagen aplicando texto personalizado directamente.',
     run: async (sock, m, texto) => {
         const from = m.key.remoteJid;
+
+        // Detectar si se respondió a un sticker, imagen, video o si el mensaje actual lo tiene
         const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-        const mediaMsg = m.message?.stickerMessage || quoted?.stickerMessage || quoted?.imageMessage || m.message?.imageMessage;
+        const mediaMsg = m.message?.stickerMessage || m.message?.imageMessage || m.message?.videoMessage || 
+                         quoted?.stickerMessage || quoted?.imageMessage || quoted?.videoMessage;
 
         if (!mediaMsg) {
-            return sock.sendMessage(from, { text: '⚠️ Responde a un sticker o imagen con /wm <texto>' });
+            return sock.sendMessage(from, { text: '⚠️ _Por favor, responde a un sticker, imagen o video con el comando /wm <texto>_' }, { quoted: m });
         }
 
         if (!texto) {
-            return sock.sendMessage(from, { text: '⚠️ Debes escribir el texto. Ejemplo: /wm Mi Texto Personalizado' });
+            return sock.sendMessage(from, { text: '⚠️ _Debes escribir un texto. Ejemplo: /wm Mi Texto Personalizado_' }, { quoted: m });
         }
 
         try {
-            let type = mediaMsg.stickerMessage || quoted?.stickerMessage ? 'sticker' : 'image';
-            const stream = await downloadContentFromMessage(mediaMsg, type);
+            // Definimos el texto ingresado directamente como el nombre del pack (o autor, como prefieras)
+            // Sin barras ni separadores molestos, todo directo.
+            const metadata = {
+                packname: texto.trim(),
+                author: '' // Si quieres que vaya vacío o ponerle algo por defecto, cámbialo aquí
+            };
+
+            const isVideo = !!(mediaMsg.videoMessage || quoted?.videoMessage);
+            const isSticker = !!(mediaMsg.stickerMessage || quoted?.stickerMessage);
+            const mediaType = isVideo ? 'video' : 'image';
+
+            // Descargar el contenido multimedia (sea sticker viejo, imagen o video)
+            const stream = await downloadContentFromMessage(mediaMsg, isSticker ? 'sticker' : mediaType);
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            const tempFile = `./temp_${Date.now()}.${type === 'sticker' ? 'webp' : 'jpg'}`;
-            const outWebp = `./output_${Date.now()}.webp`;
-            fs.writeFileSync(tempFile, buffer);
+            let webpBuffer;
+            if (isSticker) {
+                // Si ya es un sticker, lo usamos directo para reescribirle los EXIF
+                webpBuffer = buffer;
+            } else {
+                // Si es imagen o video, lo convertimos a webp usando tu función existente
+                webpBuffer = await toWebp(buffer, mediaType);
+            }
 
-            exec(`ffmpeg -i ${tempFile} -vcodec libwebp -vf "scale=512:512:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -y ${outWebp}`, async (err) => {
-                if (err) {
-                    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-                    return sock.sendMessage(from, { text: '❌ Error al procesar con ffmpeg.' });
-                }
+            // Aplicamos los metadatos limpios con tu función writeExifWebp
+            const stickerWithExif = await writeExifWebp(webpBuffer, metadata);
 
-                const img = fs.readFileSync(outWebp);
-                const exifAttr = Buffer.from([
-                    0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00
-                ]);
-                
-                const jsonic = {
-                    "sticker-pack-id": "com.bot.whatsapp",
-                    "sticker-pack-name": texto, // Aquí va todo el texto completo sin separadores
-                    "sticker-pack-publisher": "", 
-                    "emojis": ["🤖"]
-                };
-                
-                const latin1 = JSON.stringify(jsonic);
-                const latin1Buffer = Buffer.from(latin1, 'utf-8');
-                const exif = Buffer.concat([exifAttr, latin1Buffer]);
-                exif.writeUIntLE(latin1Buffer.length, 14, 4);
-                
-                img.write(exif, 12);
-                
-                await sock.sendMessage(from, { sticker: img }, { quoted: m });
-
-                if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-                if (fs.existsSync(outWebp)) fs.unlinkSync(outWebp);
-            });
+            // Enviamos el sticker resultante
+            await sock.sendMessage(from, { sticker: stickerWithExif }, { quoted: m });
 
         } catch (e) {
-            console.error(e);
-            await sock.sendMessage(from, { text: '❌ Ocurrió un error inesperado al procesar el archivo.' });
+            console.error('Error en el comando wm:', e);
+            await sock.sendMessage(from, { text: '❌ Ocurrió un error al procesar el sticker con texto.' }, { quoted: m });
         }
     }
 };
