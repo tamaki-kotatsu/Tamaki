@@ -1,6 +1,6 @@
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 // Importamos solo las funciones de conversión y escritura
-const { toWebp, writeExifWebp } = require('./sticker'); 
+const { toWebp, writeExifWebp } = require('./stickers'); 
 
 module.exports = {
   name: 'wm',
