@@ -2,60 +2,64 @@ const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 module.exports = {
     name: 'wm',
-    alias: ['watermark', 'rob'],
-    description: 'Añade tu texto o marca de agua a una imagen, video, gif o sticker al que respondas.',
+    alias: ['watermark'],
+    description: 'Robar o reenviar multimedia con un texto personalizado.',
     run: async (sock, m, texto) => {
         const from = m.key.remoteJid;
-        const sender = m.key.participant || from;
 
-        // Identificar mensaje citado (imagen, video, sticker)
+        // Detectar si hay un mensaje citado o si el mensaje actual contiene multimedia
         const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-        const mediaMsg = m.message?.imageMessage || m.message?.videoMessage || m.message?.stickerMessage || 
+        
+        // Verificamos tanto en el mensaje principal como en el mensaje citado (quoted)
+        const mediaMsg = m.message?.imageMessage || m.message?.videoMessage || m.message?.stickerMessage ||
                          quoted?.imageMessage || quoted?.videoMessage || quoted?.stickerMessage;
 
         if (!mediaMsg) {
-            return sock.sendMessage(from, { text: '⚠️ _Responde a una imagen, video, gif o sticker para aplicar el texto._' });
+            return sock.sendMessage(from, { text: '⚠️ _Por favor, responde a una imagen, video, gif o sticker con el comando /wm <texto>._' });
         }
 
-        // Jerarquía de textos: 1. Texto ingresado en el comando | 2. Texto personal (/sw) | 3. Texto del grupo (/gw)
-        let finalTexto = texto;
-        
-        if (!finalTexto) {
-            const userDb = global.db?.data?.users?.[sender];
-            const chatDb = global.db?.data?.chats?.[from];
-
-            finalTexto = userDb?.wmText || chatDb?.wmText || 'Mi Bot'; // Texto por defecto general si no hay nada configurado
+        if (!texto) {
+            return sock.sendMessage(from, { text: '⚠️ _Falta el texto. Ejemplo: /wm Mi texto personalizado_' });
         }
 
         try {
-            // Descargar el contenido multimedia de forma segura
+            // Identificar el tipo exacto de contenido multimedia
             let type = '';
-            if (mediaMsg.imageMessage) type = 'image';
-            else if (mediaMsg.videoMessage) type = 'video';
-            else if (mediaMsg.stickerMessage) type = 'sticker';
-            else if (quoted?.imageMessage) type = 'image';
-            else if (quoted?.videoMessage) type = 'video';
-            else if (quoted?.stickerMessage) type = 'sticker';
+            let messageTypeRef = null;
 
-            const stream = await downloadContentFromMessage(mediaMsg, type);
+            if (m.message?.imageMessage || quoted?.imageMessage) {
+                type = 'image';
+                messageTypeRef = m.message?.imageMessage || quoted?.imageMessage;
+            } else if (m.message?.videoMessage || quoted?.videoMessage) {
+                type = 'video';
+                messageTypeRef = m.message?.videoMessage || quoted?.videoMessage;
+            } else if (m.message?.stickerMessage || quoted?.stickerMessage) {
+                type = 'sticker';
+                messageTypeRef = m.message?.stickerMessage || quoted?.stickerMessage;
+            }
+
+            // Descargar el contenido multimedia usando Baileys
+            const stream = await downloadContentFromMessage(messageTypeRef, type);
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // Reenviar el archivo con el texto (caption) obtenido
+            // Enviar según corresponda
             if (type === 'image') {
-                await sock.sendMessage(from, { image: buffer, caption: finalTexto }, { quoted: m });
+                await sock.sendMessage(from, { image: buffer, caption: texto }, { quoted: m });
             } else if (type === 'video') {
-                await sock.sendMessage(from, { video: buffer, caption: finalTexto, mimetype: 'video/mp4' }, { quoted: m });
+                await sock.sendMessage(from, { video: buffer, caption: texto, mimetype: 'video/mp4' }, { quoted: m });
             } else if (type === 'sticker') {
-                // Si es sticker y quieres enviarlo con texto o como imagen descriptiva según prefieras
+                // Nota: Los stickers de WhatsApp nativos no llevan "caption" de texto visible flotando igual que una foto, 
+                // pero si deseas enviarlo como imagen con texto o procesarlo como sticker manteniendolo:
                 await sock.sendMessage(from, { sticker: buffer }, { quoted: m });
+                // Si preferías que el sticker mande un texto adjunto o nota al margen, avísame para ajustarlo.
             }
 
         } catch (e) {
-            console.log(e);
-            await sock.sendMessage(from, { text: '❌ _Hubo un error al procesar el archivo multimedia._' });
+            console.error(e);
+            await sock.sendMessage(from, { text: '❌ _Ocurrió un error al procesar el archivo multimedia._' });
         }
     }
 };
