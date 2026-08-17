@@ -3,8 +3,8 @@ const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { toWebp, writeExifWebp } = require('./stickers'); 
 
 module.exports = {
-  name: 'wm',
-  alias: ['watermark', 'rob'],
+  name: 'w',
+  alias: ['watermark', 'robs'],
   description: 'Procesa multimedia con texto simple, sin usar marcas de grupo/usuario.',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
