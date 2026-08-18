@@ -77,7 +77,7 @@ async function writeExifWebp(buffer, metadata) {
 }
 
 // Función para obtener marcas resolviendo prioridad: Usuario > Grupo
-async function resolveStickerMetadata(senderId, groupId, customText = '') {
+async function resolveStickerMetadata(senderId, groupId, customText = '', pushName = 'Usuario') {
   let packname = 'Proyecto1 Bot Pack';
   let author = '@hannerjhossue';
 
@@ -117,6 +117,11 @@ async function resolveStickerMetadata(senderId, groupId, customText = '') {
     }
   }
 
+  // Reemplazo dinámico de @usuario por el nombre real de WhatsApp
+  const cleanUserName = pushName || senderId.split('@')[0];
+  packname = packname.replace(/@usuario/g, cleanUserName);
+  author = author.replace(/@usuario/g, cleanUserName);
+
   return { packname, author };
 }
 
@@ -130,6 +135,7 @@ module.exports = {
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
     const sender = m.key.participant || m.key.remoteJid;
+    const pushName = m.pushName || 'Usuario';
 
     const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     const imageMsg = m.message?.imageMessage || m.message?.videoMessage || quoted?.imageMessage || quoted?.videoMessage;
@@ -139,7 +145,7 @@ module.exports = {
     }
 
     try {
-      const metadata = await resolveStickerMetadata(sender, from, texto);
+      const metadata = await resolveStickerMetadata(sender, from, texto, pushName);
 
       const isVideo = !!(m.message?.videoMessage || quoted?.videoMessage);
       const mediaType = isVideo ? 'video' : 'image';
