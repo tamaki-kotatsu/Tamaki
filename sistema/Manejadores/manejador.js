@@ -2,8 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const Group = require('../Modelos/Stickers/sgrupo');
-const sUsers = require('../Modelos/Stickers/susers'); // <-- Importado para la marca del usuario
-const sGrupo = require('../Modelos/Stickers/sgrupo'); // <-- Importado para la marca del grupo
+const User = require('../Modelos/Stickers/susers'); // <-- Importado como User tal cual en stickers.js
 const { MessageModel, AfkModel } = require('../Esquemas/esquemas');
 const { verificarModeracion } = require('../Moderadores/moderador');
 
@@ -113,6 +112,38 @@ function extraerComandoYTexto(cuerpo, sock, desde) {
     return { esComando: false, comandoNombre: '', textoArgs: '' };
 }
 
+// Función interna idéntica a stickers.js para resolver las marcas con la misma lógica exacta
+async function resolverMetadataAutosticker(senderId, groupId) {
+    let packname = 'Proyecto1 Bot Pack';
+    let author = '@hannerjhossue';
+
+    // 1. Obtener datos del grupo
+    const groupData = await Group.findOne({ groupId });
+    if (groupData) {
+        if (groupData.tempExpire && groupData.tempExpire > new Date()) {
+            if (groupData.tempPackname) packname = groupData.tempPackname;
+            if (groupData.tempAuthor) author = groupData.tempAuthor;
+        } else {
+            if (groupData.packname) packname = groupData.packname;
+            if (groupData.author) author = groupData.author;
+        }
+    }
+
+    // 2. Prioridad Personal del Usuario
+    const userData = await User.findOne({ userId: senderId });
+    if (userData) {
+        if (userData.tempExpire && userData.tempExpire > new Date()) {
+            if (userData.tempPackname) packname = userData.tempPackname;
+            if (userData.tempAuthor) author = userData.tempAuthor;
+        } else if (userData.author || userData.packname) {
+            if (userData.packname) packname = userData.packname;
+            if (userData.author) author = userData.author;
+        }
+    }
+
+    return { packname, author };
+}
+
 async function procesarAutoSticker(sock, m, desde, remitente) {
     if (m.key.fromMe || !desde.endsWith('@g.us')) return;
 
@@ -130,23 +161,10 @@ async function procesarAutoSticker(sock, m, desde, remitente) {
             writeExifWebp = stickerPlugin.writeExifWebp;
         }
 
-        // --- Extracción de metadatos desde susers.js y sgrupo.js ---
-        let packname = 'Tamaki Kotatsu';
-        let author = 'Bot';
-
-        const userMeta = await sUsers.findOne({ id: remitente });
-        const groupMeta = await sGrupo.findOne({ id: desde });
-
-        if (userMeta) {
-            packname = userMeta.packname || packname;
-            author = userMeta.author || author;
-        } else if (groupMeta) {
-            packname = groupMeta.packname || packname;
-            author = groupMeta.author || author;
-        }
-
-        const metadata = { packname, author };
-        // -----------------------------------------------------------
+        // Usamos la función de resolución de marcas idéntica a la del comando /s
+        const metadata = resolveStickerMetadata 
+            ? await resolveStickerMetadata(remitente, desde, '') 
+            : await resolverMetadataAutosticker(remitente, desde);
 
         const mediaType = isVideo ? 'video' : 'image';
         const imageMsg = isVideo ? m.message.videoMessage : m.message.imageMessage;
