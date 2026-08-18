@@ -9,7 +9,7 @@ const GroupSchema = new mongoose.Schema({
 
   // --- MARCA PARA STICKERS INDIVIDUALES (/s) ---
   packname: { type: String, default: '🪐 🜲 𝙼𝚢𝚛𝚊𝚒 🜲 🪐\n\n⤷ https://tamaki-kotatsu.github.io/.xyz/' },
-  author: { type: String, default: '⋮ ᯓ★ Info del Sticker: \n\n⋮⤷𐙚 Grupo: @grupo\n⋮⤷👤 User: @usuario\n⋮⤷🤖 Bot: Mambo 🤎' },
+  author: { type: String, default: '⋮ ᯓ★ Info del Sticker: \n\n⋮⤷𐙚 Grupo: @grupo\n⋮⤷🎖️ User: @usuario\n⋮⤷☕︎ Bot: Mambo 🤎' },
   tempPackname: { type: String, default: null },
   tempAuthor: { type: String, default: null },
   tempExpire: { type: Date, default: null },
