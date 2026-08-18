@@ -78,8 +78,9 @@ async function writeExifWebp(buffer, metadata) {
 
 // Función para obtener marcas resolviendo prioridad: Usuario > Grupo
 async function resolveStickerMetadata(senderId, groupId, customText = '', pushName = 'Usuario') {
-  let packname = 'Proyecto1 Bot Pack';
-  let author = '@hannerjhossue';
+  // Valores predeterminados actualizados por si no encuentra el registro en BD
+  let packname = '⋮    ⃝🪐 🜲 𝙼𝚢𝚛𝚊𝚒 🜲\n\n⤷https://tamaki-kotatsu.github.io/.xyz/';
+  let author = 'ϟ\n                         ⋮ 🚩 Info: \n⋮⤷User: @usuario ⭐️  ⋮⤷ Bot: Mambo 🤎';
 
   // 1. Obtener datos del grupo
   const groupData = await Group.findOne({ groupId });
