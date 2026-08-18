@@ -4,13 +4,14 @@ const WmConfig = require('../../../sistema/Modelos/Stickers/wmconfig');
 
 module.exports = {
   name: 'w',
+  alias: ['wm'],
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
     const sender = m.key.participant || m.key.remoteJid;
     
     let packName = texto ? texto.trim() : null;
 
-    // Si no hay texto, buscamos en el modelo nuevo
+    // Si no hay texto, buscamos en el modelo nuevo (Usuario > Grupo > Global predeterminada)
     if (!packName) {
       const user = await WmConfig.findOne({ id: sender, type: 'user' });
       const group = await WmConfig.findOne({ id: from, type: 'group' });
@@ -37,6 +38,7 @@ module.exports = {
       const stickerWithExif = await writeExifWebp(webpBuffer, { packname: packName, author: '' });
       await sock.sendMessage(from, { sticker: stickerWithExif }, { quoted: m });
     } catch (e) {
+      console.error('Error en w.js:', e);
       await sock.sendMessage(from, { text: '❌ Error al procesar.' }, { quoted: m });
     }
   }
