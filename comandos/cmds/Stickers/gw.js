@@ -1,16 +1,19 @@
-const WmConfig = require('../../../sistema/Modelos/Stickers/wmconfig'); // Ajusta la ruta
+const WmConfig = require('../../../sistema/Modelos/Stickers/wmconfig');
 
 module.exports = {
-  name: 'setgroupw',
+  name: 'setgroupwm',
+  alias: ['setgwm'],
+  soloAdmins: true, // <-- Esto le indica a tu procesador que bloquee a los no-admins
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
-    if (!texto) return sock.sendMessage(from, { text: '⚠️ _Escribe el nombre para la marca del grupo._' }, { quoted: m });
+    if (!texto) return sock.sendMessage(from, { text: '⚠️ _Escribe el nombre para la marca de agua del grupo._' }, { quoted: m });
 
     await WmConfig.findOneAndUpdate(
       { id: from, type: 'group' },
       { packname: texto.trim() },
       { upsert: true, new: true }
     );
-    await sock.sendMessage(from, { text: `✅ _Marca del grupo establecida a: "${texto.trim()}"_` }, { quoted: m });
+    
+    await sock.sendMessage(from, { text: `✅ _Marca de agua del grupo establecida a: "${texto.trim()}"_` }, { quoted: m });
   }
 };
