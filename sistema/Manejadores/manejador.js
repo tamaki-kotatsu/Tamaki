@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const Group = require('../Modelos/Stickers/sgrupo');
+const WmConfig = require('../Modelos/Stickers/wmconfig'); // <-- Añadido para el autosticker con wm independiente
 const { MessageModel, AfkModel } = require('../Esquemas/esquemas');
 const { verificarModeracion } = require('../Moderadores/moderador');
 
@@ -122,14 +123,18 @@ async function procesarAutoSticker(sock, m, desde, remitente) {
     if (!groupData || !groupData.autosticker) return;
 
     try {
-        if (!toWebp || !writeExifWebp || !resolveStickerMetadata) {
+        if (!toWebp || !writeExifWebp) {
             const stickerPlugin = require('../../plugins/sticker');
             toWebp = stickerPlugin.toWebp;
             writeExifWebp = stickerPlugin.writeExifWebp;
-            resolveStickerMetadata = stickerPlugin.resolveStickerMetadata;
         }
 
-        const metadata = await resolveStickerMetadata(remitente, desde);
+        // Búsqueda integrada con WmConfig (Usuario > Grupo > Global predeterminada)
+        const userWm = await WmConfig.findOne({ id: remitente, type: 'user' });
+        const groupWm = await WmConfig.findOne({ id: desde, type: 'group' });
+        const packName = userWm?.packname || groupWm?.packname || 'Mi Marca WM';
+        const metadata = { packname: packName, author: '' };
+
         const mediaType = isVideo ? 'video' : 'image';
         const imageMsg = isVideo ? m.message.videoMessage : m.message.imageMessage;
 
