@@ -1,7 +1,7 @@
 const WmConfig = require('../../../sistema/Modelos/Stickers/wmconfig'); // Ajusta la ruta
 
 module.exports = {
-  name: 'setgroupwm',
+  name: 'setgroupw',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
     if (!texto) return sock.sendMessage(from, { text: '⚠️ _Escribe el nombre para la marca del grupo._' }, { quoted: m });
