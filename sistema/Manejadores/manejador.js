@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const Group = require('../Modelos/Stickers/sgrupo');
-const WmConfig = require('../Modelos/Stickers/wmconfig'); // <-- Añadido para el autosticker con wm independiente
+const sUsers = require('../Modelos/Stickers/susers'); // <-- Importado para la marca del usuario
+const sGrupo = require('../Modelos/Stickers/sgrupo'); // <-- Importado para la marca del grupo
 const { MessageModel, AfkModel } = require('../Esquemas/esquemas');
 const { verificarModeracion } = require('../Moderadores/moderador');
 
@@ -129,11 +130,23 @@ async function procesarAutoSticker(sock, m, desde, remitente) {
             writeExifWebp = stickerPlugin.writeExifWebp;
         }
 
-        // Búsqueda integrada con WmConfig (Usuario > Grupo > Global predeterminada)
-        const userWm = await WmConfig.findOne({ id: remitente, type: 'user' });
-        const groupWm = await WmConfig.findOne({ id: desde, type: 'group' });
-        const packName = userWm?.packname || groupWm?.packname || 'Mi Marca WM';
-        const metadata = { packname: packName, author: '' };
+        // --- Extracción de metadatos desde susers.js y sgrupo.js ---
+        let packname = 'Tamaki Kotatsu';
+        let author = 'Bot';
+
+        const userMeta = await sUsers.findOne({ id: remitente });
+        const groupMeta = await sGrupo.findOne({ id: desde });
+
+        if (userMeta) {
+            packname = userMeta.packname || packname;
+            author = userMeta.author || author;
+        } else if (groupMeta) {
+            packname = groupMeta.packname || packname;
+            author = groupMeta.author || author;
+        }
+
+        const metadata = { packname, author };
+        // -----------------------------------------------------------
 
         const mediaType = isVideo ? 'video' : 'image';
         const imageMsg = isVideo ? m.message.videoMessage : m.message.imageMessage;
