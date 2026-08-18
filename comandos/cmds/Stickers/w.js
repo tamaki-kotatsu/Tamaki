@@ -3,7 +3,7 @@ const { toWebp, writeExifWebp } = require('./stickers');
 const WmConfig = require('../../../sistema/Modelos/Stickers/wmconfig');
 
 module.exports = {
-  name: 'wm',
+  name: 'w',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
     const sender = m.key.participant || m.key.remoteJid;
