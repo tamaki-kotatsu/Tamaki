@@ -77,10 +77,9 @@ async function writeExifWebp(buffer, metadata) {
 }
 
 // Función para obtener marcas resolviendo prioridad: Usuario > Grupo
-async function resolveStickerMetadata(senderId, groupId, customText = '', pushName = 'Usuario') {
-  // Valores predeterminados actualizados por si no encuentra el registro en BD
-  let packname = '⋮    ⃝🪐 🜲 𝙼𝚢𝚛𝚊𝚒 🜲\n\n⤷https://tamaki-kotatsu.github.io/.xyz/';
-  let author = 'ϟ\n                         ⋮ 🚩 Info: \n⋮⤷User: @usuario ⭐️  ⋮⤷ Bot: Mambo 🤎';
+async function resolveStickerMetadata(senderId, groupId, customText = '', pushName = 'Usuario', groupName = 'Chat Privado') {
+  let packname = '🪐 🜲 𝙼𝚢𝚛𝚊𝚒 🜲 🪐\n\n⤷ https://tamaki-kotatsu.github.io/.xyz/';
+  let author = '🚩 Info del Sticker 🚩\n\n👥 Grupo: @grupo\n👤 User: @usuario\n🤖 Bot: Mambo 🤎';
 
   // 1. Obtener datos del grupo
   const groupData = await Group.findOne({ groupId });
@@ -118,10 +117,10 @@ async function resolveStickerMetadata(senderId, groupId, customText = '', pushNa
     }
   }
 
-  // Reemplazo dinámico de @usuario por el nombre real de WhatsApp
+  // Reemplazo dinámico de @usuario y @grupo
   const cleanUserName = pushName || senderId.split('@')[0];
-  packname = packname.replace(/@usuario/g, cleanUserName);
-  author = author.replace(/@usuario/g, cleanUserName);
+  packname = packname.replace(/@usuario/g, cleanUserName).replace(/@grupo/g, groupName);
+  author = author.replace(/@usuario/g, cleanUserName).replace(/@grupo/g, groupName);
 
   return { packname, author };
 }
@@ -138,6 +137,16 @@ module.exports = {
     const sender = m.key.participant || m.key.remoteJid;
     const pushName = m.pushName || 'Usuario';
 
+    let groupName = 'Chat Privado';
+    if (from.endsWith('@g.us')) {
+      try {
+        const groupMetadata = await sock.groupMetadata(from);
+        groupName = groupMetadata.subject || 'Grupo de WhatsApp';
+      } catch (e) {
+        groupName = 'Grupo';
+      }
+    }
+
     const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     const imageMsg = m.message?.imageMessage || m.message?.videoMessage || quoted?.imageMessage || quoted?.videoMessage;
 
@@ -146,7 +155,7 @@ module.exports = {
     }
 
     try {
-      const metadata = await resolveStickerMetadata(sender, from, texto, pushName);
+      const metadata = await resolveStickerMetadata(sender, from, texto, pushName, groupName);
 
       const isVideo = !!(m.message?.videoMessage || quoted?.videoMessage);
       const mediaType = isVideo ? 'video' : 'image';
