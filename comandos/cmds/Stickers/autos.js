@@ -1,4 +1,4 @@
-const Group = require('../Modelos/Stickers/sgrupo');
+const Group = require('../../../sistema/Modelos/Stickers/sgrupo');
 
 module.exports = {
   name: 'autosticker',
