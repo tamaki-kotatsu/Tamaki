@@ -1,7 +1,7 @@
 const WmConfig = require('../../../sistema/Modelos/Stickers/wmconfig'); // Ajusta la ruta
 
 module.exports = {
-  name: 'setuserwm',
+  name: 'setuserw',
   run: async (sock, m, texto) => {
     const sender = m.key.participant || m.key.remoteJid;
     if (!texto) return sock.sendMessage(m.key.remoteJid, { text: '⚠️ _Escribe el nombre para tu marca de agua._' }, { quoted: m });
