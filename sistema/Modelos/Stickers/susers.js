@@ -4,15 +4,15 @@ const UserSchema = new mongoose.Schema({
   userId: { type: String, required: true, unique: true }, // WhatsApp ID del usuario (ej: 123456789@s.whatsapp.net)
 
   // --- MARCA PERSONAL PARA STICKERS INDIVIDUALES (/s) ---
-  packname: { type: String, default: 'Mi Bot Pack' },
-  author: { type: String, default: 'Mi Sticker' },
+  packname: { type: String, default: '⋮    ⃝🪐 🜲 𝙼𝚢𝚛𝚊𝚒 🜲\n\n⤷https://tamaki-kotatsu.github.io/.xyz/' },
+  author: { type: String, default: 'ϟ\n                         ⋮ 🚩 Info: \n⋮⤷User: @usuario ⭐️  ⋮⤷ Bot: Mambo 🤎' },
   tempPackname: { type: String, default: null },
   tempAuthor: { type: String, default: null },
   tempExpire: { type: Date, default: null },
 
   // --- MARCA PERSONAL PARA PAQUETES (/pack) ---
-  packNamePack: { type: String, default: 'Mi Paquete de Stickers' },
-  authorPack: { type: String, default: 'Mi Autor' },
+  packNamePack: { type: String, default: '⋮    ⃝🪐 🜲 𝙼𝚢𝚛𝚊𝚒 🜲\n\n⤷https://tamaki-kotatsu.github.io/.xyz/' },
+  authorPack: { type: String, default: 'ϟ\n                         ⋮ 🚩 Info: \n⋮⤷User: @usuario ⭐️  ⋮⤷ Bot: Mambo 🤎' },
   tempPackNamePack: { type: String, default: null },
   tempAuthorPack: { type: String, default: null },
   tempExpirePack: { type: Date, default: null }
