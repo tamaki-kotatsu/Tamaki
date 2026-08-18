@@ -2,7 +2,8 @@ const WmConfig = require('../../../sistema/Modelos/Stickers/wmconfig');
 
 module.exports = {
   name: 'delgroupwm',
-  description: 'Elimina la marca de agua del grupo.',
+  alias: ['delgwm'],
+  soloAdmins: true, // <-- Esto restringe el comando exclusivamente a administradores
   run: async (sock, m) => {
     const from = m.key.remoteJid;
     await WmConfig.deleteOne({ id: from, type: 'group' });
