@@ -174,6 +174,6 @@ const handler = async (msg, { conn, text }) => {
   }
 };
 
-handler.command = ["play"];
+handler.command = ["ssplay"];
 
 module.exports = handler;
