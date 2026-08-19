@@ -2,51 +2,63 @@ const axios = require("axios");
 
 let handler = {
     name: 'spotify',
-    alias: ['sp', 'cancion'],
+    alias: ['sp', 'cancion', 'spotifydl'],
     command: ['spotify', 'sp'],
-    description: 'Busca canciones en Spotify.',
+    description: 'Busca y descarga música de Spotify en audio.',
     run: async (sock, m, texto) => {
         const from = m.key.remoteJid;
 
         if (!texto) {
             return sock.sendMessage(from, { 
-                text: '⚠️ Por favor, ingresa el nombre de la canción que deseas buscar.\n\n*Ejemplo:* /sp despacito' 
+                text: '⚠️ Por favor, ingresa el nombre de una canción o enlace de Spotify.\n\n*Ejemplo:* /sp despacito' 
             }, { quoted: m });
         }
 
         try {
-            await sock.sendMessage(from, { text: '🔍 Buscando en Spotify...' }, { quoted: m });
+            await sock.sendMessage(from, { text: '🔍 Buscando y preparando tu audio de Spotify...' }, { quoted: m });
 
+            // Detectar si es URL o texto de búsqueda
+            const isUrl = /spotify\.com/i.test(texto);
+            const body = isUrl ? { url: texto } : { query: texto };
+
+            // Usamos el endpoint correcto de descarga (/spotify)
             const { data } = await axios.post(
-                "https://api-sky.ultraplus.click/search/spotify",
-                { query: texto },
+                "https://api-sky.ultraplus.click/spotify",
+                body,
                 { 
                     headers: { 
                         "apikey": "sk_7f41a58b-bd6f-4df1-be6c-ea4d64913247",
                         "Content-Type": "application/json"
-                    } 
+                    },
+                    timeout: 30000
                 }
             );
 
-            if (!data.status) {
-                throw new Error("La API no devolvió un estado exitoso.");
+            if (!data || (data.status !== true && data.status !== "true")) {
+                return sock.sendMessage(from, { text: '❌ No se pudo procesar la canción en este momento.' }, { quoted: m });
             }
 
-            // Obtenemos el primer resultado de la lista
-            const canciones = data.result?.results;
-            if (!canciones || canciones.length === 0) {
-                return sock.sendMessage(from, { text: '❌ No se encontraron resultados para esa búsqueda.' }, { quoted: m });
+            const title = data.result?.title || "Spotify Track";
+            const artist = data.result?.artist || "Desconocido";
+            const audioUrl = data.result?.media?.audio;
+
+            if (!audioUrl) {
+                return sock.sendMessage(from, { text: '❌ No se encontró el enlace de descarga para este audio.' }, { quoted: m });
             }
 
-            const track = canciones[0];
+            // Enviar la información de la canción
+            let infoTexto = `🎵 *Spotify - Descarga*\n\n` +
+                            `* *Título:* ${title}\n` +
+                            `* *Artista:* ${artist}`;
 
-            let resultadoTexto = `🎵 *Resultado de Spotify*\n\n` +
-                                 `* *Título:* ${track.title}\n` +
-                                 `* *Artista:* ${track.artist || 'Desconocido'}\n` +
-                                 `* *Álbum:* ${track.album || 'N/A'}\n` +
-                                 `* *Enlace:* ${track.url}`;
+            await sock.sendMessage(from, { text: infoTexto }, { quoted: m });
 
-            await sock.sendMessage(from, { text: resultadoTexto }, { quoted: m });
+            // Enviar el archivo de audio (MP3) directamente al chat
+            await sock.sendMessage(from, {
+                audio: { url: audioUrl },
+                mimetype: 'audio/mpeg',
+                fileName: `${title} - ${artist}.mp3`
+            }, { quoted: m });
 
         } catch (error) {
             console.error('Error en el plugin de Spotify:', error);
