@@ -1,16 +1,16 @@
-import { cabeceraDescarga, camposDescarga, pieDescarga, getMarca, canal, listaSegura } from "../../disenos.js";
-import { fileURLToPath as __fileURLToPath } from 'url';
-const __filename = __fileURLToPath(import.meta.url);
-const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
+const { cabeceraDescarga, camposDescarga, pieDescarga, getMarca, canal, listaSegura } = require("../../disenos.js");
+const path = require('path');
+const __filename = __filename || '';
+const __dirname = path.resolve();
+
 "use strict";
 
-import axios from 'axios';
-import yts from 'yt-search';
-import fs from 'fs';
-import path from 'path';
-import ffmpeg from 'fluent-ffmpeg';
-import { promisify } from 'util';
-import { pipeline } from 'stream';
+const axios = require('axios');
+const yts = require('yt-search');
+const fs = require('fs');
+const ffmpeg = require('fluent-ffmpeg');
+const { promisify } = require('util');
+const { pipeline } = require('stream');
 const streamPipe = promisify(pipeline);
 
 // ==== API SKY ULTRA PLUS ====
@@ -47,7 +47,7 @@ function fileSizeMB(filePath) {
 }
 
 function ensureTmp() {
-  const tmp = path.join(__dirname, "../tmp");
+  const tmp = path.join(__dirname, "tmp");
   if (!fs.existsSync(tmp)) fs.mkdirSync(tmp, { recursive: true });
   return tmp;
 }
@@ -815,4 +815,4 @@ async function downloadVideo(conn, job, asDocument, quoted) {
 
 handler.command = ["play"];
 
-export default handler;
+module.exports = handler;
