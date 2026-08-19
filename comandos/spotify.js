@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+const fetch = require('node-fetch'); // O axios, segun lo que uses
 
 let handler = {
     name: 'spotify',
@@ -31,7 +31,6 @@ let handler = {
             let data = await response.json();
 
             // 3. Validar y estructurar la respuesta para el bot
-            // Nota: Si la estructura de tu API cambia, ajusta las propiedades (ej. data.resultado)
             if (data && data.resultado) {
                 let resultadoTexto = `🎵 *Resultado de Spotify*\n\n` +
                                      `* *Título:* ${data.resultado.title}\n` +
@@ -50,4 +49,4 @@ let handler = {
     }
 };
 
-export default handler;
+module.exports = handler;
