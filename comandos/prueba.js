@@ -7,7 +7,6 @@ const { promisify } = require('util');
 const { pipeline } = require('stream');
 const streamPipe = promisify(pipeline);
 
-// ==== API CONFIGURACIÓN ====
 const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
 const API_KEY = process.env.API_KEY || "sk_7f41a58b-bd6f-4df1-be6c-ea4d64913247";
 const API_RESOLVE = `${API_BASE}/youtube/resolve`;
@@ -15,7 +14,6 @@ const API_RESOLVE = `${API_BASE}/youtube/resolve`;
 const RESOLVE_TIMEOUT = 300000;
 const DOWNLOAD_TIMEOUT = 300000;
 const MAX_MB = 200;
-const ACTIVOSS_FILE = path.resolve("./activoss.json");
 
 function safeName(name = "file") {
   return String(name).slice(0, 90).replace(/[^\w.\- ]+/g, "_").replace(/\s+/g, " ").trim() || "file";
@@ -97,83 +95,83 @@ async function callYoutubeResolve(videoUrl) {
   return { title: result.title || "YouTube", candidatos };
 }
 
-const handler = async (msg, { conn, text }) => {
-  const query = text ? text.trim() : "";
+module.exports = {
+  name: 'ytmp6',
+  alias: ['musica', 'play'],
+  description: 'Busca y descarga música de YouTube en formato MP3.',
+  run: async (sock, m, texto) => {
+    const from = m.key.remoteJid;
+    const query = texto ? texto.trim() : "";
 
-  if (!query) {
-    return conn.sendMessage(msg.key.remoteJid, { text: "✳️ Por favor escribe el nombre de la canción que quieres buscar.\nEj: *\.play bad bunny diles*" }, { quoted: msg });
-  }
-
-  await conn.sendMessage(msg.key.remoteJid, { react: { text: "⏳", key: msg.key } });
-
-  const res = await yts(query);
-  const video = res.videos?.[0];
-
-  if (!video) {
-    return conn.sendMessage(msg.key.remoteJid, { text: "❌ No se encontraron resultados para tu búsqueda." }, { quoted: msg });
-  }
-
-  const { url: videoUrl, title } = video;
-
-  try {
-    const resolved = await callYoutubeResolve(videoUrl);
-    const tmp = ensureTmp();
-    const base = safeName(resolved.title || title);
-    const inFile = path.join(tmp, `${Date.now()}_audio.bin`);
-
-    // Descargar archivo de los candidatos
-    let descargado = false;
-    for (const url of resolved.candidatos) {
-      try {
-        await downloadToFile(url, inFile);
-        descargado = true;
-        break;
-      } catch (e) {
-        try { fs.unlinkSync(inFile); } catch {}
-      }
+    if (!query) {
+      return sock.sendMessage(from, { text: '✳️ Por favor escribe el nombre de la canción.\nEj: *ytmp3 bad bunny diles*' }, { quoted: m });
     }
 
-    if (!descargado) throw new Error("No se pudo descargar de ningún enlace disponible.");
+    await sock.sendMessage(from, { react: { text: "⏳", key: m.key } });
 
-    const outMp3 = path.join(tmp, `${Date.now()}_${base}.mp3`);
-    
-    // Convertir a MP3 si es necesario usando ffmpeg
     try {
-      await new Promise((resolve, reject) => {
-        ffmpeg(inFile)
-          .audioCodec("libmp3lame")
-          .audioBitrate("128k")
-          .format("mp3")
-          .save(outMp3)
-          .on("end", resolve)
-          .on("error", reject);
-      });
-      try { fs.unlinkSync(inFile); } catch {}
-    } catch {
-      fs.renameSync(inFile, outMp3);
-    }
+      const res = await yts(query);
+      const video = res.videos?.[0];
 
-    if (fileSizeMB(outMp3) > MAX_MB) {
+      if (!video) {
+        await sock.sendMessage(from, { text: '❌ No se encontraron resultados para tu búsqueda.' }, { quoted: m });
+        return;
+      }
+
+      const { url: videoUrl, title } = video;
+      const resolved = await callYoutubeResolve(videoUrl);
+      const tmp = ensureTmp();
+      const base = safeName(resolved.title || title);
+      const inFile = path.join(tmp, `${Date.now()}_audio.bin`);
+
+      let descargado = false;
+      for (const url of resolved.candidatos) {
+        try {
+          await downloadToFile(url, inFile);
+          descargado = true;
+          break;
+        } catch (e) {
+          try { fs.unlinkSync(inFile); } catch {}
+        }
+      }
+
+      if (!descargado) throw new Error("No se pudo descargar de ningún enlace disponible.");
+
+      const outMp3 = path.join(tmp, `${Date.now()}_${base}.mp3`);
+
+      try {
+        await new Promise((resolve, reject) => {
+          ffmpeg(inFile)
+            .audioCodec("libmp3lame")
+            .audioBitrate("128k")
+            .format("mp3")
+            .save(outMp3)
+            .on("end", resolve)
+            .on("error", reject);
+        });
+        try { fs.unlinkSync(inFile); } catch {}
+      } catch {
+        fs.renameSync(inFile, outMp3);
+      }
+
+      if (fileSizeMB(outMp3) > MAX_MB) {
+        try { fs.unlinkSync(outMp3); } catch {}
+        await sock.sendMessage(from, { text: `❌ El archivo supera el límite de ${MAX_MB}MB.` }, { quoted: m });
+        return;
+      }
+
+      await sock.sendMessage(from, {
+        audio: { url: outMp3 },
+        mimetype: "audio/mpeg",
+        ptt: false,
+        fileName: `${base}.mp3`
+      }, { quoted: m });
+
       try { fs.unlinkSync(outMp3); } catch {}
-      return conn.sendMessage(msg.key.remoteJid, { text: `❌ El archivo supera el límite de ${MAX_MB}MB.` }, { quoted: msg });
+      await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
+
+    } catch (e) {
+      await sock.sendMessage(from, { text: `❌ Ocurrió un error al procesar la canción: ${e.message}` }, { quoted: m });
     }
-
-    // Enviar el audio directamente al chat
-    await conn.sendMessage(msg.key.remoteJid, {
-      audio: { url: outMp3 },
-      mimetype: "audio/mpeg",
-      ptt: false,
-      fileName: `${base}.mp3`
-    }, { quoted: msg });
-
-    try { fs.unlinkSync(outMp3); } catch {}
-    await conn.sendMessage(msg.key.remoteJid, { react: { text: "✅", key: msg.key } });
-
-  } catch (e) {
-    await conn.sendMessage(msg.key.remoteJid, { text: `❌ Ocurrió un error al procesar la canción: ${e.message}` }, { quoted: msg });
   }
 };
-
-handler.command = ["ssplay"];
-
-module.exports = handler;
