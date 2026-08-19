@@ -1,4 +1,4 @@
-const fetch = require('node-fetch'); // O axios, segun lo que uses
+const axios = require('axios');
 
 let handler = {
     name: 'spotify',
@@ -18,17 +18,17 @@ let handler = {
         try {
             await sock.sendMessage(from, { text: '🔍 Buscando en Spotify, por favor espera...' }, { quoted: m });
 
-            // 2. Realizar la petición POST con los datos de tu cURL
-            let response = await fetch("https://api-sky.ultraplus.click/search/spotify", {
-                method: "POST",
+            // 2. Realizar la petición POST con Axios
+            let response = await axios.post("https://api-sky.ultraplus.click/search/spotify", {
+                query: texto
+            }, {
                 headers: {
                     "apikey": "sk_7f41a58b-bd6f-4df1-be6c-ea4d64913247",
                     "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ query: texto })
+                }
             });
 
-            let data = await response.json();
+            let data = response.data;
 
             // 3. Validar y estructurar la respuesta para el bot
             if (data && data.resultado) {
