@@ -1,26 +1,18 @@
 const path = require('path');
 const axios = require('axios');
-const yts = require('yt-search');
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
 const { promisify } = require('util');
 const { pipeline } = require('stream');
 const streamPipe = promisify(pipeline);
 
-const API_BASE = (process.env.API_BASE || "https://api-sky.ultraplus.click").replace(/\/+$/, "");
-const API_KEY = process.env.API_KEY || "sk_7f41a58b-bd6f-4df1-be6c-ea4d64913247";
-const API_RESOLVE = `${API_BASE}/youtube/resolve`;
-
-const RESOLVE_TIMEOUT = 300000;
-const DOWNLOAD_TIMEOUT = 300000;
+const API_BASE = "https://api-sky.ultraplus.click";
+const API_KEY = "sk_7f41a58b-bd6f-4df1-be6c-ea4d64913247";
+const MAX_TIMEOUT = 60000;
 const MAX_MB = 200;
 
 function safeName(name = "file") {
   return String(name).slice(0, 90).replace(/[^\w.\- ]+/g, "_").replace(/\s+/g, " ").trim() || "file";
-}
-
-function fileSizeMB(filePath) {
-  return fs.statSync(filePath).size / (1024 * 1024);
 }
 
 function ensureTmp() {
@@ -29,29 +21,18 @@ function ensureTmp() {
   return tmp;
 }
 
-function isApiUrl(url = "") {
-  try {
-    const u = new URL(url);
-    const b = new URL(API_BASE);
-    return u.host === b.host;
-  } catch {
-    return false;
-  }
+function fileSizeMB(filePath) {
+  return fs.statSync(filePath).size / (1024 * 1024);
 }
 
 async function downloadToFile(url, filePath) {
-  const headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-    Accept: "*/*"
-  };
-
-  if (isApiUrl(url)) headers["apikey"] = API_KEY;
-
   const res = await axios.get(url, {
     responseType: "stream",
-    timeout: DOWNLOAD_TIMEOUT,
-    headers,
-    maxRedirects: 5,
+    timeout: MAX_TIMEOUT,
+    headers: {
+      "apikey": API_KEY,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36"
+    },
     validateStatus: () => true
   });
 
@@ -60,118 +41,136 @@ async function downloadToFile(url, filePath) {
   return filePath;
 }
 
-function mediaCandidatos(result) {
-  const media = result?.media;
-  if (typeof media === "string") return [media.startsWith("/") ? API_BASE + media : media].filter(Boolean);
+async function getTikTokFromSky(url) {
+  const { data: res, status: http } = await axios.post(
+    `${API_BASE}/tiktok`,
+    { url },
+    {
+      headers: {
+        apikey: API_KEY,
+        Authorization: `Bearer ${API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      timeout: MAX_TIMEOUT,
+      validateStatus: (s) => s >= 200 && s < 600,
+    }
+  );
 
-  const urls = [
-    media?.direct,
-    media?.dl_download,
-    media?.dl_inline,
-    media?.url || media?.download,
-    result?.url || result?.download
-  ].map(u => (u && u.startsWith("/") ? API_BASE + u : u));
+  if (http !== 200 || !res || res.status !== true) {
+    throw new Error(res?.message || "La API no devolvió una respuesta válida.");
+  }
 
-  return [...new Set(urls.filter(Boolean))];
-}
+  const r = res.result || {};
+  const media = r.media || {};
 
-async function callYoutubeResolve(videoUrl) {
-  const r = await axios.post(API_RESOLVE, { url: videoUrl, type: "audio", format: "mp3" }, {
-    timeout: RESOLVE_TIMEOUT,
-    headers: { "Content-Type": "application/json", apikey: API_KEY, Accept: "application/json, */*" },
-    validateStatus: () => true
-  });
-
-  const data = typeof r.data === "object" ? r.data : null;
-  if (!data) throw new Error("Respuesta no JSON del servidor");
-
-  const ok = data.status === true || data.status === "true" || data.ok === true || data.success === true;
-  if (!ok) throw new Error(data.message || data.error || `HTTP_${r.status}`);
-
-  const result = data.result || data.data || data;
-  const candidatos = mediaCandidatos(result);
-  if (!candidatos.length) throw new Error("La API no devolvió enlace de descarga");
-
-  return { title: result.title || "YouTube", candidatos };
+  return {
+    title: r.title || "TikTok",
+    author: (r.author && (r.author.name || r.author.username)) || "Desconocido",
+    videoUrl: media.video || null,
+    audioUrl: media.audio || null,
+  };
 }
 
 module.exports = {
-  name: 'ytmp6',
-  alias: ['musica', 'play'],
-  description: 'Busca y descarga música de YouTube en formato MP3.',
+  name: 'tiktok2',
+  alias: ['ttv2', 'ttmp3', 'tiktokmp3'],
+  description: 'Descarga videos y audios MP3 nativos de TikTok.',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
-    const query = texto ? texto.trim() : "";
+    const bodyText = (m.text || m.caption || texto || "").trim();
+    const command = bodyText.split(' ')[0].replace(/^[^\w\s]/, '').toLowerCase();
 
-    if (!query) {
-      return sock.sendMessage(from, { text: '✳️ Por favor escribe el nombre de la canción.\nEj: *ytmp3 bad bunny diles*' }, { quoted: m });
+    const matchUrl = bodyText.match(/https?:\/\/(www\.|vm\.|vt\.)?tiktok\.com\/[^\s]+/i);
+    const url = matchUrl ? matchUrl[0] : null;
+
+    if (!url) {
+      return sock.sendMessage(from, { text: '❌ _Ingresa un enlace válido de TikTok._\n\n*Uso:* /ttv2 <url> o /ttmp3 <url>' }, { quoted: m });
     }
 
     await sock.sendMessage(from, { react: { text: "⏳", key: m.key } });
 
     try {
-      const res = await yts(query);
-      const video = res.videos?.[0];
-
-      if (!video) {
-        await sock.sendMessage(from, { text: '❌ No se encontraron resultados para tu búsqueda.' }, { quoted: m });
-        return;
-      }
-
-      const { url: videoUrl, title } = video;
-      const resolved = await callYoutubeResolve(videoUrl);
+      const data = await getTikTokFromSky(url);
       const tmp = ensureTmp();
-      const base = safeName(resolved.title || title);
-      const inFile = path.join(tmp, `${Date.now()}_audio.bin`);
+      const base = safeName(data.title);
 
-      let descargado = false;
-      for (const url of resolved.candidatos) {
-        try {
-          await downloadToFile(url, inFile);
-          descargado = true;
-          break;
-        } catch (e) {
-          try { fs.unlinkSync(inFile); } catch {}
+      // CASO 1: EXTRAER AUDIO MP3 (/ttmp3)
+      if (command === 'ttmp3' || command === 'tiktokmp3') {
+        const targetAudioUrl = data.audioUrl || data.videoUrl;
+        if (!targetAudioUrl) {
+          await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
+          return sock.sendMessage(from, { text: '❌ _No se encontró audio disponible en esta publicación._' }, { quoted: m });
         }
-      }
 
-      if (!descargado) throw new Error("No se pudo descargar de ningún enlace disponible.");
+        const rawAudioPath = path.join(tmp, `${Date.now()}_raw.bin`);
+        const outMp3Path = path.join(tmp, `${Date.now()}_${base}.mp3`);
 
-      const outMp3 = path.join(tmp, `${Date.now()}_${base}.mp3`);
+        await downloadToFile(targetAudioUrl, rawAudioPath);
 
-      try {
-        await new Promise((resolve, reject) => {
-          ffmpeg(inFile)
-            .audioCodec("libmp3lame")
-            .audioBitrate("128k")
-            .format("mp3")
-            .save(outMp3)
-            .on("end", resolve)
-            .on("error", reject);
-        });
-        try { fs.unlinkSync(inFile); } catch {}
-      } catch {
-        fs.renameSync(inFile, outMp3);
-      }
+        // Conversión FFmpeg exacta igual a tu plugin ytmp3
+        try {
+          await new Promise((resolve, reject) => {
+            ffmpeg(rawAudioPath)
+              .audioCodec("libmp3lame")
+              .audioBitrate("128k")
+              .format("mp3")
+              .save(outMp3Path)
+              .on("end", resolve)
+              .on("error", reject);
+          });
+          try { fs.unlinkSync(rawAudioPath); } catch {}
+        } catch (e) {
+          fs.renameSync(rawAudioPath, outMp3Path);
+        }
 
-      if (fileSizeMB(outMp3) > MAX_MB) {
-        try { fs.unlinkSync(outMp3); } catch {}
-        await sock.sendMessage(from, { text: `❌ El archivo supera el límite de ${MAX_MB}MB.` }, { quoted: m });
+        if (fileSizeMB(outMp3Path) > MAX_MB) {
+          try { fs.unlinkSync(outMp3Path); } catch {}
+          await sock.sendMessage(from, { text: `❌ El archivo supera el límite de ${MAX_MB}MB.` }, { quoted: m });
+          return;
+        }
+
+        await sock.sendMessage(from, {
+          audio: { url: outMp3Path },
+          mimetype: "audio/mpeg",
+          ptt: false,
+          fileName: `${base}.mp3`
+        }, { quoted: m });
+
+        try { fs.unlinkSync(outMp3Path); } catch {}
+        await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
         return;
       }
 
-      await sock.sendMessage(from, {
-        audio: { url: outMp3 },
-        mimetype: "audio/mpeg",
-        ptt: false,
-        fileName: `${base}.mp3`
-      }, { quoted: m });
+      // CASO 2: DESCARGA DE VIDEO (/ttv2)
+      if (data.videoUrl) {
+        const vidPath = path.join(tmp, `${Date.now()}_${base}.mp4`);
+        await downloadToFile(data.videoUrl, vidPath);
 
-      try { fs.unlinkSync(outMp3); } catch {}
-      await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
+        if (fileSizeMB(vidPath) > MAX_MB) {
+          try { fs.unlinkSync(vidPath); } catch {}
+          await sock.sendMessage(from, { text: `❌ El video supera el límite de ${MAX_MB}MB.` }, { quoted: m });
+          return;
+        }
 
-    } catch (e) {
-      await sock.sendMessage(from, { text: `❌ Ocurrió un error al procesar la canción: ${e.message}` }, { quoted: m });
+        const caption = `╭━━━━━━━━━━━━━━━╮\n   ⚡ *TIKTOK V2*\n╰━━━━━━━━━━━━━━━━╯\n\n📝 *Título:* ${data.title}\n👤 *Autor:* ${data.author}`;
+
+        await sock.sendMessage(from, {
+          video: { url: vidPath },
+          mimetype: "video/mp4",
+          caption: caption
+        }, { quoted: m });
+
+        try { fs.unlinkSync(vidPath); } catch {}
+        await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
+        return;
+      }
+
+      throw new Error("No se encontró video o audio disponible.");
+
+    } catch (err) {
+      console.error("[TIKTOK ERROR]:", err);
+      await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
+      await sock.sendMessage(from, { text: `❌ _Ocurrió un error:_ ${err.message}` }, { quoted: m });
     }
   }
 };
