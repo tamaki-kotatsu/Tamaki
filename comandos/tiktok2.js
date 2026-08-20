@@ -26,17 +26,18 @@ async function getTikTokFromSky(url) {
     throw new Error(res?.message || "La API no devolvió una respuesta válida.");
   }
 
-  const r = res.result;
+  const r = res.result || {};
+  const media = r.media || {};
+
   return {
     title: r.title || "TikTok",
     author: (r.author && (r.author.name || r.author.username)) || "Desconocido",
-    videoUrl: r.media?.video || null,
-    images: r.media?.images || r.images || [],
-    audioUrl: r.media?.audio || null,
+    videoUrl: media.video || null,
+    images: media.images || r.images || [],
+    audioUrl: media.audio || null,
   };
 }
 
-// Procesa y limpia imagen mediante ffmpeg
 function processImageWithFFmpeg(inputBuffer) {
   return new Promise((resolve, reject) => {
     const tmpDir = path.resolve("./tmp");
@@ -65,13 +66,13 @@ function processImageWithFFmpeg(inputBuffer) {
 module.exports = {
   name: 'tiktok2',
   alias: ['ttv2', 'ttmp3', 'tiktokmp3'],
-  description: 'Descarga videos, carrusel de fotos (procesadas con ffmpeg) y audios de TikTok.',
+  description: 'Descarga videos, carrusel de fotos procesadas y audios mp3 de TikTok.',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
-    const command = (m.text || m.caption || "").trim().split(' ')[0].slice(1).toLowerCase();
+    const bodyText = (m.text || m.caption || texto || "").trim();
+    const command = bodyText.split(' ')[0].replace(/^[^\w\s]/, '').toLowerCase();
     
-    // Extrae la primera URL de TikTok encontrada en el texto enviada
-    const matchUrl = (texto || "").match(/https?:\/\/(www\.|vm\.|vt\.)?tiktok\.com\/[^\s]+/i);
+    const matchUrl = bodyText.match(/https?:\/\/(www\.|vm\.|vt\.)?tiktok\.com\/[^\s]+/i);
     const url = matchUrl ? matchUrl[0] : null;
 
     if (!url) {
@@ -83,23 +84,27 @@ module.exports = {
 
       const data = await getTikTokFromSky(url);
 
-      // Si el comando usado es para extraer audio
+      // CASO AUDIO (/ttmp3)
       if (command === 'ttmp3' || command === 'tiktokmp3') {
-        const audioSrc = data.audioUrl || data.videoUrl;
-        if (!audioSrc) {
+        const targetAudioUrl = data.audioUrl || data.videoUrl;
+        if (!targetAudioUrl) {
           return sock.sendMessage(from, { text: '❌ _No se encontró pista de audio disponible en esta publicación._' }, { quoted: m });
         }
 
+        // Descargamos el buffer antes de enviarlo para forzar el mimetype correcto de audio
+        const audioRes = await axios.get(targetAudioUrl, { responseType: 'arraybuffer', timeout: 60000 });
+        const audioBuffer = Buffer.from(audioRes.data);
+
         return sock.sendMessage(from, {
-          audio: { url: audioSrc },
+          audio: audioBuffer,
           mimetype: 'audio/mp4',
-          fileName: `${data.title.slice(0, 30)}.mp3`
+          ptt: false
         }, { quoted: m });
       }
 
-      // CASO 1: Publicación de Imágenes (Carrusel / Slideshow)
-      if (data.images && data.images.length > 0) {
-        await sock.sendMessage(from, { text: `📸 _Se detectó un carrusel con ${data.images.length} imágenes. Procesando con FFmpeg..._` }, { quoted: m });
+      // CASO IMÁGENES (Carrusel / Slideshow)
+      if (Array.isArray(data.images) && data.images.length > 0) {
+        await sock.sendMessage(from, { text: `📸 _Se detectaron ${data.images.length} imágenes. Procesando..._` }, { quoted: m });
 
         for (let i = 0; i < data.images.length; i++) {
           const imgUrl = typeof data.images[i] === 'string' ? data.images[i] : data.images[i]?.url;
@@ -118,23 +123,27 @@ module.exports = {
           }
         }
 
-        // Si incluye música/audio de fondo lo envía al finalizar
         if (data.audioUrl) {
-          await sock.sendMessage(from, {
-            audio: { url: data.audioUrl },
-            mimetype: 'audio/mp4',
-            fileName: 'tiktok_sound.mp3'
-          }, { quoted: m });
+          try {
+            const audioRes = await axios.get(data.audioUrl, { responseType: 'arraybuffer', timeout: 60000 });
+            await sock.sendMessage(from, {
+              audio: Buffer.from(audioRes.data),
+              mimetype: 'audio/mp4',
+              ptt: false
+            }, { quoted: m });
+          } catch (e) {}
         }
         return;
       }
 
-      // CASO 2: Publicación de Video
+      // CASO VIDEO ESTÁNDAR
       if (data.videoUrl) {
         const caption = `╭━━━━━━━━━━━━━━━╮\n   ⚡ *TIKTOK V2*\n╰━━━━━━━━━━━━━━━━╯\n\n📝 *Título:* ${data.title}\n👤 *Autor:* ${data.author}`;
 
+        const videoRes = await axios.get(data.videoUrl, { responseType: 'arraybuffer', timeout: 90000 });
+
         return sock.sendMessage(from, {
-          video: { url: data.videoUrl },
+          video: Buffer.from(videoRes.data),
           mimetype: "video/mp4",
           caption: caption
         }, { quoted: m });
