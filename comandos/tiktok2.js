@@ -1,41 +1,44 @@
+const path = require('path');
 const axios = require('axios');
 const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
+const ffmpeg = require('fluent-ffmpeg');
+const { promisify } = require('util');
+const { pipeline } = require('stream');
+const streamPipe = promisify(pipeline);
 
 const API_BASE = "https://api-sky.ultraplus.click";
 const API_KEY = "sk_7f41a58b-bd6f-4df1-be6c-ea4d64913247";
 const MAX_TIMEOUT = 60000;
+const MAX_MB = 200;
 
-// Descarga un archivo a disco para evitar streams corruptos
-async function downloadFile(url, outputPath) {
-  const res = await axios.get(url, { responseType: 'stream', timeout: 60000 });
-  const writer = fs.createWriteStream(outputPath);
-  res.data.pipe(writer);
-  return new Promise((resolve, reject) => {
-    writer.on('finish', () => resolve(outputPath));
-    writer.on('error', reject);
-  });
+function safeName(name = "file") {
+  return String(name).slice(0, 90).replace(/[^\w.\- ]+/g, "_").replace(/\s+/g, " ").trim() || "file";
 }
 
-// Convierte cualquier entrada a MP3 real
-function convertToMp3(inputPath, outputPath) {
-  return new Promise((resolve, reject) => {
-    exec(`ffmpeg -y -i "${inputPath}" -vn -ar 44100 -ac 2 -b:a 192k "${outputPath}"`, (error) => {
-      if (error) return reject(error);
-      resolve(outputPath);
-    });
-  });
+function ensureTmp() {
+  const tmp = path.join(__dirname, "tmp");
+  if (!fs.existsSync(tmp)) fs.mkdirSync(tmp, { recursive: true });
+  return tmp;
 }
 
-// Convierte/limpia imágenes con FFmpeg
-function processImageWithFFmpeg(inputPath, outputPath) {
-  return new Promise((resolve, reject) => {
-    exec(`ffmpeg -y -i "${inputPath}" -q:v 2 "${outputPath}"`, (error) => {
-      if (error) return reject(error);
-      resolve(outputPath);
-    });
+function fileSizeMB(filePath) {
+  return fs.statSync(filePath).size / (1024 * 1024);
+}
+
+async function downloadToFile(url, filePath) {
+  const res = await axios.get(url, {
+    responseType: "stream",
+    timeout: MAX_TIMEOUT,
+    headers: {
+      "apikey": API_KEY,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36"
+    },
+    validateStatus: () => true
   });
+
+  if (res.status >= 400) throw new Error(`HTTP_${res.status}`);
+  await streamPipe(res.data, fs.createWriteStream(filePath));
+  return filePath;
 }
 
 async function getTikTokFromSky(url) {
@@ -60,16 +63,10 @@ async function getTikTokFromSky(url) {
   const r = res.result || {};
   const media = r.media || {};
 
-  // Mapea las posibles ubicaciones de imágenes en la respuesta de la API
-  let imgList = [];
-  if (Array.isArray(media.images) && media.images.length > 0) imgList = media.images;
-  else if (Array.isArray(r.images) && r.images.length > 0) imgList = r.images;
-
   return {
     title: r.title || "TikTok",
     author: (r.author && (r.author.name || r.author.username)) || "Desconocido",
     videoUrl: media.video || null,
-    images: imgList,
     audioUrl: media.audio || null,
   };
 }
@@ -77,7 +74,7 @@ async function getTikTokFromSky(url) {
 module.exports = {
   name: 'tiktok2',
   alias: ['ttv2', 'ttmp3', 'tiktokmp3'],
-  description: 'Descarga de TikTok: audios MP3 nativos, videos e imágenes procesadas.',
+  description: 'Descarga videos y audios MP3 nativos de TikTok.',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
     const bodyText = (m.text || m.caption || texto || "").trim();
@@ -90,90 +87,89 @@ module.exports = {
       return sock.sendMessage(from, { text: '❌ _Ingresa un enlace válido de TikTok._\n\n*Uso:* /ttv2 <url> o /ttmp3 <url>' }, { quoted: m });
     }
 
-    const tmpDir = path.resolve("./tmp");
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+    await sock.sendMessage(from, { react: { text: "⏳", key: m.key } });
 
     try {
-      await sock.sendMessage(from, { text: '⏳ _Procesando contenido..._' }, { quoted: m });
-
       const data = await getTikTokFromSky(url);
+      const tmp = ensureTmp();
+      const base = safeName(data.title);
 
-      // 1. COMANDO AUDIO (/ttmp3)
+      // CASO 1: EXTRAER AUDIO MP3 (/ttmp3)
       if (command === 'ttmp3' || command === 'tiktokmp3') {
         const targetAudioUrl = data.audioUrl || data.videoUrl;
         if (!targetAudioUrl) {
+          await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
           return sock.sendMessage(from, { text: '❌ _No se encontró audio disponible en esta publicación._' }, { quoted: m });
         }
 
-        const rawAudioPath = path.join(tmpDir, `raw_${Date.now()}.mp4`);
-        const mp3Path = path.join(tmpDir, `aud_${Date.now()}.mp3`);
+        const rawAudioPath = path.join(tmp, `${Date.now()}_raw.bin`);
+        const outMp3Path = path.join(tmp, `${Date.now()}_${base}.mp3`);
 
-        await downloadFile(targetAudioUrl, rawAudioPath);
-        await convertToMp3(rawAudioPath, mp3Path);
+        await downloadToFile(targetAudioUrl, rawAudioPath);
 
-        const audioBuffer = fs.readFileSync(mp3Path);
-
-        // Limpieza de temporales
-        try { fs.unlinkSync(rawAudioPath); fs.unlinkSync(mp3Path); } catch (e) {}
-
-        return sock.sendMessage(from, {
-          audio: audioBuffer,
-          mimetype: 'audio/mpeg',
-          ptt: false
-        }, { quoted: m });
-      }
-
-      // 2. CARRUSEL DE IMÁGENES
-      if (data.images.length > 0) {
-        await sock.sendMessage(from, { text: `📸 _Encontradas ${data.images.length} imágenes. Enviando..._` }, { quoted: m });
-
-        for (let i = 0; i < data.images.length; i++) {
-          const rawUrl = typeof data.images[i] === 'string' ? data.images[i] : data.images[i]?.url;
-          if (!rawUrl) continue;
-
-          const rawImgPath = path.join(tmpDir, `raw_img_${i}_${Date.now()}`);
-          const cleanImgPath = path.join(tmpDir, `clean_img_${i}_${Date.now()}.jpg`);
-
-          try {
-            await downloadFile(rawUrl, rawImgPath);
-            await processImageWithFFmpeg(rawImgPath, cleanImgPath);
-
-            const imgBuffer = fs.readFileSync(cleanImgPath);
-
-            await sock.sendMessage(from, {
-              image: imgBuffer,
-              caption: i === 0 ? `🖼️ *TikTok Fotos*\n📝 *Título:* ${data.title}\n👤 *Autor:* ${data.author}` : ''
-            }, { quoted: m });
-
-            try { fs.unlinkSync(rawImgPath); fs.unlinkSync(cleanImgPath); } catch (e) {}
-          } catch (e) {
-            console.error(`Error procesando imagen ${i + 1}:`, e);
-          }
+        // Conversión FFmpeg exacta igual a tu plugin ytmp3
+        try {
+          await new Promise((resolve, reject) => {
+            ffmpeg(rawAudioPath)
+              .audioCodec("libmp3lame")
+              .audioBitrate("128k")
+              .format("mp3")
+              .save(outMp3Path)
+              .on("end", resolve)
+              .on("error", reject);
+          });
+          try { fs.unlinkSync(rawAudioPath); } catch {}
+        } catch (e) {
+          fs.renameSync(rawAudioPath, outMp3Path);
         }
+
+        if (fileSizeMB(outMp3Path) > MAX_MB) {
+          try { fs.unlinkSync(outMp3Path); } catch {}
+          await sock.sendMessage(from, { text: `❌ El archivo supera el límite de ${MAX_MB}MB.` }, { quoted: m });
+          return;
+        }
+
+        await sock.sendMessage(from, {
+          audio: { url: outMp3Path },
+          mimetype: "audio/mpeg",
+          ptt: false,
+          fileName: `${base}.mp3`
+        }, { quoted: m });
+
+        try { fs.unlinkSync(outMp3Path); } catch {}
+        await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
         return;
       }
 
-      // 3. VIDEO
+      // CASO 2: DESCARGA DE VIDEO (/ttv2)
       if (data.videoUrl) {
-        const videoPath = path.join(tmpDir, `vid_${Date.now()}.mp4`);
-        await downloadFile(data.videoUrl, videoPath);
+        const vidPath = path.join(tmp, `${Date.now()}_${base}.mp4`);
+        await downloadToFile(data.videoUrl, vidPath);
 
-        const videoBuffer = fs.readFileSync(videoPath);
-        try { fs.unlinkSync(videoPath); } catch (e) {}
+        if (fileSizeMB(vidPath) > MAX_MB) {
+          try { fs.unlinkSync(vidPath); } catch {}
+          await sock.sendMessage(from, { text: `❌ El video supera el límite de ${MAX_MB}MB.` }, { quoted: m });
+          return;
+        }
 
         const caption = `╭━━━━━━━━━━━━━━━╮\n   ⚡ *TIKTOK V2*\n╰━━━━━━━━━━━━━━━━╯\n\n📝 *Título:* ${data.title}\n👤 *Autor:* ${data.author}`;
 
-        return sock.sendMessage(from, {
-          video: videoBuffer,
+        await sock.sendMessage(from, {
+          video: { url: vidPath },
           mimetype: "video/mp4",
           caption: caption
         }, { quoted: m });
+
+        try { fs.unlinkSync(vidPath); } catch {}
+        await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
+        return;
       }
 
-      throw new Error("No se encontró contenido descargable.");
+      throw new Error("No se encontró video o audio disponible.");
 
     } catch (err) {
-      console.error("[TIKTOK V2 ERROR]:", err);
+      console.error("[TIKTOK ERROR]:", err);
+      await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
       await sock.sendMessage(from, { text: `❌ _Ocurrió un error:_ ${err.message}` }, { quoted: m });
     }
   }
