@@ -36,15 +36,19 @@ module.exports = {
 
       const data = response.data;
 
-      if (!data || !data.status || !data.result) {
+      // Imprimimos el JSON completo en la consola de tu bot para ver la estructura exacta
+      console.log("RESPUESTA API APTOIDE:", JSON.stringify(data, null, 2));
+
+      if (!data || !data.status) {
         throw new Error(data?.message || "No se pudo encontrar la aplicación.");
       }
 
-      const res = data.result;
-      const downloadUrl = res.media || res.url || res.download;
+      // Buscamos cualquier propiedad que pueda contener el enlace o el archivo
+      const res = data.result || data;
+      const downloadUrl = res.media || res.url || res.download || res.file?.url || res.path;
 
       if (!downloadUrl) {
-        throw new Error("La API no devolvió un enlace de descarga válido.");
+        throw new Error("La API no devolvió un enlace de descarga válido. (Revisa la consola del bot)");
       }
 
       const caption = `📱 *${res.name || res.title || query}*` +
@@ -52,7 +56,6 @@ module.exports = {
         (res.version ? `\n𖠁 *Versión:* ${res.version}` : "") +
         `\n\n────────────\n🤖 _Bot de Descargas_`;
 
-      // Si incluye imagen o icono previo
       if (res.thumbnail || res.image || res.icon) {
         try {
           await sock.sendMessage(chatId, {
@@ -62,7 +65,6 @@ module.exports = {
         } catch {}
       }
 
-      // Enviar el APK como documento utilizando la URL que entrega Sky
       await sock.sendMessage(chatId, {
         document: { url: downloadUrl },
         mimetype: "application/vnd.android.package-archive",
