@@ -13,8 +13,8 @@ const API_RESOLVE = `${API_BASE}/youtube/resolve`;
 
 const RESOLVE_TIMEOUT = 300000;
 const DOWNLOAD_TIMEOUT = 300000;
-const DEFAULT_VIDEO_QUALITY = "1080"; // Calidad alta predeterminada
-const MAX_MB = 200;
+const FIXED_QUALITY = "360"; // Calidad fija y ligera para evitar llenar el disco
+const MAX_MB = 100;
 
 function safeName(name = "video") {
   return (
@@ -152,56 +152,42 @@ function mediaCandidatos(result) {
   return [...new Set(urls.filter(Boolean))];
 }
 
-async function callYoutubeResolve(videoUrl, preferredQuality) {
-  // Probará desde la máxima calidad deseada hasta las más bajas como alternativa
-  const qualitiesToTry = [preferredQuality, "1080", "720", "360"];
-  const uniqueQualities = [...new Set(qualitiesToTry)];
+async function callYoutubeResolve(videoUrl) {
+  const r = await axios.post(API_RESOLVE, {
+    url: videoUrl,
+    type: "video",
+    quality: FIXED_QUALITY
+  }, {
+    timeout: RESOLVE_TIMEOUT,
+    headers: {
+      "Content-Type": "application/json",
+      apikey: API_KEY,
+      Accept: "application/json, */*"
+    },
+    validateStatus: () => true
+  });
 
-  let lastError;
-  for (const q of uniqueQualities) {
-    try {
-      const r = await axios.post(API_RESOLVE, {
-        url: videoUrl,
-        type: "video",
-        quality: q
-      }, {
-        timeout: RESOLVE_TIMEOUT,
-        headers: {
-          "Content-Type": "application/json",
-          apikey: API_KEY,
-          Accept: "application/json, */*"
-        },
-        validateStatus: () => true
-      });
+  const data = typeof r.data === "object" ? r.data : null;
+  if (!data) throw new Error("Respuesta no JSON del servidor");
 
-      const data = typeof r.data === "object" ? r.data : null;
-      if (!data) continue;
+  const ok = data.status === true || data.status === "true" || data.ok === true || data.success === true;
+  if (!ok) throw new Error(data.message || data.error || `HTTP_${r.status}`);
 
-      const ok = data.status === true || data.status === "true" || data.ok === true || data.success === true;
-      if (!ok) continue;
+  const result = data.result || data.data || data;
+  const candidatos = mediaCandidatos(result);
 
-      const result = data.result || data.data || data;
-      const candidatos = mediaCandidatos(result);
+  if (!candidatos.length) throw new Error("La API no devolvió enlace de descarga");
 
-      if (candidatos.length > 0) {
-        return {
-          title: result.title || "YouTube",
-          qualityUsed: q,
-          candidatos
-        };
-      }
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error("No se pudo obtener un enlace de descarga.");
+  return {
+    title: result.title || "YouTube",
+    candidatos
+  };
 }
 
 module.exports = {
   name: 'ytmp4',
   alias: ['ytv', 'yt4'],
-  description: 'Descarga videos de YouTube en la mejor calidad directamente.',
+  description: 'Descarga videos de YouTube directamente.',
   run: async (sock, m, texto) => {
     const from = m.key.remoteJid;
     const url = String(texto || "").trim();
@@ -239,7 +225,7 @@ module.exports = {
     } catch {}
 
     try {
-      const resolved = await callYoutubeResolve(url, DEFAULT_VIDEO_QUALITY);
+      const resolved = await callYoutubeResolve(url);
       const mediaUrl = resolved.candidatos[0];
 
       if (!mediaUrl) {
@@ -257,7 +243,7 @@ module.exports = {
       if (sizeMB > MAX_MB) {
         try { fs.unlinkSync(file); } catch {}
         await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-        return sock.sendMessage(from, { text: `❌ El video pesa ${sizeMB.toFixed(2)}MB y supera el límite de ${MAX_MB}MB.` }, { quoted: m });
+        return sock.sendMessage(from, { text: `❌ El video pesa ${sizeMB.toFixed(2)}MB y supera el límite permitido.` }, { quoted: m });
       }
 
       const finalCaption =
@@ -267,7 +253,7 @@ module.exports = {
 👤 *Autor:* ${authorName}
 ⏱️ *Duración:* ${duration}
 👁️ *Vistas:* ${viewsFmt}
-⚡ *Calidad:* ${resolved.qualityUsed}p
+⚡ *Calidad:* ${FIXED_QUALITY}p
 💾 *Tamaño:* ${sizeMB.toFixed(2)} MB`;
 
       await sock.sendMessage(
@@ -285,6 +271,13 @@ module.exports = {
       await sock.sendMessage(from, { react: { text: "✅", key: m.key } });
 
     } catch (e) {
+      try {
+        const files = fs.readdirSync(ensureTmp());
+        for (const file of files) {
+          try { fs.unlinkSync(path.join(ensureTmp(), file)); } catch {}
+        }
+      } catch {}
+
       await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
       await sock.sendMessage(from, { text: `❌ Error: ${e.message}` }, { quoted: m });
     }
