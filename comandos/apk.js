@@ -36,40 +36,48 @@ module.exports = {
 
       const data = response.data;
 
-      // Imprimimos el JSON completo en la consola de tu bot para ver la estructura exacta
-      console.log("RESPUESTA API APTOIDE:", JSON.stringify(data, null, 2));
-
       if (!data || !data.status) {
         throw new Error(data?.message || "No se pudo encontrar la aplicación.");
       }
 
-      // Buscamos cualquier propiedad que pueda contener el enlace o el archivo
-      const res = data.result || data;
-      const downloadUrl = res.media || res.url || res.download || res.file?.url || res.path;
+      // La API devuelve un array o objeto en result. Tomamos el primer resultado si es array.
+      let res = data.result;
+      if (Array.isArray(res)) res = res[0];
 
-      if (!downloadUrl) {
-        throw new Error("La API no devolvió un enlace de descarga válido. (Revisa la consola del bot)");
+      if (!res) {
+        throw new Error("No se encontraron resultados para la búsqueda.");
       }
 
-      const caption = `📱 *${res.name || res.title || query}*` +
-        (res.size ? `\n𖠁 *Tamaño:* ${res.size}` : "") +
+      // Propiedad exacta que viene en tu consola: "apk"
+      const downloadUrl = res.apk || res.media || res.url || res.download;
+
+      if (!downloadUrl) {
+        throw new Error("La API no devolvió un enlace de descarga válido.");
+      }
+
+      const caption = `📱 *${res.name || query}*` +
+        (res.size ? `\n𖠁 *Tamaño:* ${(res.size / (1024 * 1024)).toFixed(2)} MB` : "") +
         (res.version ? `\n𖠁 *Versión:* ${res.version}` : "") +
+        (res.developer ? `\n𖠁 *Desarrollador:* ${res.developer}` : "") +
         `\n\n────────────\n🤖 _Bot de Descargas_`;
 
-      if (res.thumbnail || res.image || res.icon) {
+      // Imagen previa usando la propiedad "icon" que muestra la consola
+      const imageUrl = res.icon || res.thumbnail || res.image;
+      if (imageUrl) {
         try {
           await sock.sendMessage(chatId, {
-            image: { url: res.thumbnail || res.image || res.icon },
+            image: { url: imageUrl },
             caption
           }, { quoted: m });
         } catch {}
       }
 
+      // Enviar el APK como documento
       await sock.sendMessage(chatId, {
         document: { url: downloadUrl },
         mimetype: "application/vnd.android.package-archive",
         fileName: `${(res.name || query).replace(/[^\w.-]/g, "_")}.apk`,
-        caption: res.title || "Aquí tienes tu APK 📱"
+        caption: `Aquí tienes tu APK: *${res.name || query}* 📱`
       }, { quoted: m });
 
       await sock.sendMessage(chatId, {
