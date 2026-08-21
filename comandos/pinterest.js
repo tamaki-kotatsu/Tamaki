@@ -1,12 +1,8 @@
-import { fileURLToPath as __fileURLToPath } from 'url';
-const __filename = __fileURLToPath(import.meta.url);
-const __dirname = __filename.substring(0, __filename.lastIndexOf('/'));
-
-import axios from 'axios';
-import fs from 'fs';
-import path from 'path';
-import { promisify } from 'util';
-import { pipeline } from 'stream';
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const { promisify } = require('util');
+const { pipeline } = require('stream');
 const streamPipe = promisify(pipeline);
 
 // ==== CONFIG API ====
