@@ -30,7 +30,7 @@ module.exports = {
           "apikey": API_KEY,
           "Content-Type": "application/json"
         },
-        timeout: 60000,
+        timeout: 120000,
         validateStatus: () => true
       });
 
@@ -41,33 +41,33 @@ module.exports = {
       }
 
       const res = data.result;
-
-      const caption = `📱 *Nombre:* ${res.name || res.title || query}\n` +
-        `𖠁 *Tamaño:* ${res.size || "—"}\n` +
-        `𖠁 *Versión:* ${res.version || "—"}\n` +
-        `𖠁 *Desarrollador:* ${res.developer || "—"}\n\n────────────\n🤖 _Bot de Descargas_`;
-
-      // Enviar imagen previa si existe
-      if (res.thumbnail || res.image || res.icon) {
-        await sock.sendMessage(chatId, {
-          image: { url: res.thumbnail || res.image || res.icon },
-          caption,
-          mimetype: "image/jpeg"
-        }, { quoted: m });
-      } else {
-        await sock.sendMessage(chatId, { text: caption }, { quoted: m });
-      }
-
-      // Enviar el archivo APK usando la URL devuelta por la API
       const downloadUrl = res.media || res.url || res.download;
+
       if (!downloadUrl) {
         throw new Error("La API no devolvió un enlace de descarga válido.");
       }
 
+      const caption = `📱 *${res.name || res.title || query}*` +
+        (res.size ? `\n𖠁 *Tamaño:* ${res.size}` : "") +
+        (res.version ? `\n𖠁 *Versión:* ${res.version}` : "") +
+        `\n\n────────────\n🤖 _Bot de Descargas_`;
+
+      // Si incluye imagen o icono previo
+      if (res.thumbnail || res.image || res.icon) {
+        try {
+          await sock.sendMessage(chatId, {
+            image: { url: res.thumbnail || res.image || res.icon },
+            caption
+          }, { quoted: m });
+        } catch {}
+      }
+
+      // Enviar el APK como documento utilizando la URL que entrega Sky
       await sock.sendMessage(chatId, {
         document: { url: downloadUrl },
         mimetype: "application/vnd.android.package-archive",
-        fileName: `${(res.name || query).replace(/[^\w.-]/g, "_")}.apk`
+        fileName: `${(res.name || query).replace(/[^\w.-]/g, "_")}.apk`,
+        caption: res.title || "Aquí tienes tu APK 📱"
       }, { quoted: m });
 
       await sock.sendMessage(chatId, {
