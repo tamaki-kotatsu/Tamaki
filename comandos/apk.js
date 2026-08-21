@@ -1,47 +1,53 @@
+const axios = require('axios');
+
+const API_BASE = "https://api-sky.ultraplus.click";
 const API_KEY = "sk_7f41a58b-bd6f-4df1-be6c-ea4d64913247";
 
 module.exports = {
   name: 'aptoide',
   alias: ['apk'],
   description: 'Busca y descarga aplicaciones mediante Aptoide.',
-  run: async (sock, m) => {
-    const from = m?.key?.remoteJid;
-    if (!from) return;
+  run: async (sock, m, texto) => {
+    const from = m.key.remoteJid;
+    const query = (texto || "").trim();
 
-    // Extraemos el texto del mensaje de forma segura sin depender de argumentos externos
-    const messageBody = 
-      m?.message?.conversation || 
-      m?.message?.extendedTextMessage?.text || 
-      m?.text || 
-      "";
-
-    // Quitamos el comando y los espacios para obtener solo el término de búsqueda
-    const args = messageBody.trim().split(/ +/).slice(1);
-    const texto = args.join(" ").trim();
-
-    if (!texto) {
-      return sock.sendMessage(from, { text: '⚠️ Envía el comando junto al nombre de la app. Ejemplo: /aptoide WhatsApp' }, { quoted: m });
+    if (!query) {
+      return sock.sendMessage(from, { text: '❌ _Ingresa el nombre de una aplicación para buscar._\n\n*Uso:* /aptoide <nombre>' }, { quoted: m });
     }
 
     try {
-      const res = await fetch("https://api-sky.ultraplus.click/aptoide", {
-        method: "POST",
-        headers: { apikey: API_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ q: texto })
+      await sock.sendMessage(from, { text: '⏳ _Buscando aplicación en Aptoide..._' }, { quoted: m });
+
+      const response = await axios.post(`${API_BASE}/aptoide`, { q: query }, {
+        headers: { "Content-Type": "application/json", apikey: API_KEY },
+        timeout: 60000,
+        validateStatus: () => true
       });
 
-      const data = await res.json();
-      if (!data.status) {
-        return sock.sendMessage(from, { text: "❌ " + (data.message || "No se encontraron resultados.") }, { quoted: m });
+      const data = response.data;
+      if (!(data?.status === true || data?.status === "true")) {
+        throw new Error(data?.message || "No se pudo obtener información de la aplicación.");
       }
 
+      const result = data.result;
+      const mediaUrl = result?.media;
+
+      if (!mediaUrl) {
+        return sock.sendMessage(from, { text: '🚫 _No se encontró el archivo multimedia para esta aplicación._' }, { quoted: m });
+      }
+
+      const title = result?.title || "Aptoide App";
+
+      const caption = `╭━━━━━━━━━━━━━━━━━╮\n   📦 *APTOIDE DOWNLOAD*\n╰━━━━━━━━━━━━━━━━━╯\n\n📝 *Nombre:* ${title}`;
+
       await sock.sendMessage(from, {
-        video: { url: data.result.media },
-        caption: data.result.title || "Listo ✅"
+        video: { url: mediaUrl },
+        caption: caption
       }, { quoted: m });
 
-    } catch (e) {
-      await sock.sendMessage(from, { text: "❌ Error: " + e.message }, { quoted: m });
+    } catch (err) {
+      console.error("[APTOIDE ERROR]:", err);
+      await sock.sendMessage(from, { text: `❌ _Ocurrió un error:_ ${err.message}` }, { quoted: m });
     }
   }
 };
