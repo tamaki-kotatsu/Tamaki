@@ -4,24 +4,20 @@ module.exports = {
   name: 'aptoide',
   alias: ['apk'],
   description: 'Busca y descarga aplicaciones mediante Aptoide.',
-  run: async (sock, m, arg) => {
-    const from = m.key.remoteJid;
+  run: async (sock, m) => {
+    const from = m?.key?.remoteJid;
+    if (!from) return;
 
-    // Convertimos de forma segura el argumento a string (sea string, array o objeto)
-    let texto = "";
-    if (typeof arg === "string") {
-      texto = arg.trim();
-    } else if (Array.isArray(arg)) {
-      texto = arg.join(" ").trim();
-    } else if (arg && typeof arg.text === "string") {
-      texto = arg.text.trim();
-    } else if (m.text) {
-      // Si el framework pasa otra cosa, extraemos el texto directamente del mensaje
-      const body = m.text || m.message?.conversation || "";
-      const parts = body.trim().split(" ");
-      parts.shift(); // Quitamos el comando
-      texto = parts.join(" ").trim();
-    }
+    // Extraemos el texto del mensaje de forma segura sin depender de argumentos externos
+    const messageBody = 
+      m?.message?.conversation || 
+      m?.message?.extendedTextMessage?.text || 
+      m?.text || 
+      "";
+
+    // Quitamos el comando y los espacios para obtener solo el término de búsqueda
+    const args = messageBody.trim().split(/ +/).slice(1);
+    const texto = args.join(" ").trim();
 
     if (!texto) {
       return sock.sendMessage(from, { text: '⚠️ Envía el comando junto al nombre de la app. Ejemplo: /aptoide WhatsApp' }, { quoted: m });
