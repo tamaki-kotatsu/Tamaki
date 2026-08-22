@@ -1,14 +1,11 @@
-import axios from 'axios';
-import yts from 'yt-search';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { promisify } from 'util';
-import { pipeline } from 'stream';
+const axios = require('axios');
+const yts = require('yt-search');
+const fs = require('fs');
+const path = require('path');
+const { promisify } = require('util');
+const { pipeline } = require('stream');
 
 const streamPipe = promisify(pipeline);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const API_BASE = "https://api-sky.ultraplus.click";
 const API_KEY = "sk_7f41a58b-bd6f-4df1-be6c-ea4d64913247";
@@ -27,7 +24,7 @@ function ensureTmp() {
   return tmp;
 }
 
-export default {
+module.exports = {
   name: 'ytmp3',
   alias: ['yta', 'audio'],
   description: 'Descarga música de YouTube en formato MP3.',
@@ -49,7 +46,6 @@ export default {
         if (searchRes) title = searchRes.title || title;
       }
 
-      // Resolver enlace con la API
       const r = await axios.post(API_RESOLVE, { url, type: "audio", format: "mp3" }, {
         timeout: RESOLVE_TIMEOUT,
         headers: { "Content-Type": "application/json", apikey: API_KEY, Accept: "application/json" },
@@ -64,7 +60,6 @@ export default {
       const tmp = ensureTmp();
       const outFile = path.join(tmp, `${Date.now()}_${safeName(title)}.mp3`);
 
-      // Descargar archivo
       const resFile = await axios.get(mediaUrl.startsWith("/") ? API_BASE + mediaUrl : mediaUrl, {
         responseType: "stream",
         timeout: DOWNLOAD_TIMEOUT,
